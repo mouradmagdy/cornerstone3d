@@ -173,6 +173,11 @@ const CornerstoneViewer = () => {
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
         const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
+        const photometricInterpretation =
+          dataset.string("x00280004") || "MONOCHROME2"; // Photometric Interpretation
+        console.log(
+          `File: ${file.name}, PhotometricInterpretation: ${photometricInterpretation}`
+        );
         const imageId = wadouri.fileManager.add(file);
         parsedFiles.push({ imageId, instanceNumber });
       } catch (error) {
