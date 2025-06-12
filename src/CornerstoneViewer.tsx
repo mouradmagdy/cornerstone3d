@@ -107,6 +107,15 @@ const CornerstoneViewer = () => {
         defaultOptions: {},
       });
 
+      console.log(viewportElement);
+      viewportElement.addEventListener(Events.CAMERA_MODIFIED, () => {
+        const viewport = renderingEngine.getViewport(viewportId);
+        if (viewport) {
+          const zoom = viewport.getZoom();
+          setZoomLevel(Math.round(zoom * 100));
+        }
+      });
+
       setLoading(false);
     };
 
@@ -125,6 +134,9 @@ const CornerstoneViewer = () => {
         console.error("Viewport is not initialized.");
         return;
       }
+      // console.log(viewport);
+      // console.log(viewport.getZoom());
+      // viewport.setZoom(zoomLevel / 100);
 
       viewport.setStack(imageIds, currentIndex);
       viewport.render();
@@ -268,7 +280,7 @@ const CornerstoneViewer = () => {
         webkitdirectory="true"
         disabled={uploading}
       />
-      Zoom: {zoomLevel}%
+      Zoom: {(zoomLevel / 100).toFixed(2)}x
       <p>Drag and drop DICOM files here or click to upload.</p>
       <div ref={viewportRef} style={{ width: "100%", height: "500px" }} />
     </div>
