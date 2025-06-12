@@ -19,6 +19,8 @@ const { ViewportType } = Enums;
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
   const [imageIds, setImageIds] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
   const viewportRef = useRef(null);
@@ -33,9 +35,9 @@ const CornerstoneViewer = () => {
       }
       initializedRef.current = true;
       // Initialize Cornerstone3D and tools
-      await coreInit();
-      await cornerstoneToolsInit();
-      await dicomImageLoaderInit();
+      coreInit();
+      cornerstoneToolsInit();
+      dicomImageLoaderInit();
 
       // Add tools
       addTool(WindowLevelTool);
@@ -98,10 +100,24 @@ const CornerstoneViewer = () => {
     if (imageIds.length > 0 && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       const viewport = renderingEngine.getViewport(viewportId);
-      viewport.setStack(imageIds, 0);
+      viewport.setStack(imageIds, currentIndex);
       viewport.render();
     }
-  }, [imageIds]);
+  }, [imageIds, currentIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft" && currentIndex > 0) {
+        setCurrentIndex((prev) => prev - 1);
+      }
+      if (e.key === "ArrowRight" && currentIndex < imageIds.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, imageIds]);
 
   const handleFileUpload = async (files) => {
     const parsedFiles = [];
