@@ -1,11 +1,18 @@
-import CornerstoneViewer from "./CornerstoneViewer";
+import Toast from "./components/Toast";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
 
 function App() {
   return (
-    <div>
-      <h1 className="bg-red-300">Cornerstone3D React 18 Demo</h1>
-      <CornerstoneViewer />
-    </div>
+    <>
+      <Toast />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 

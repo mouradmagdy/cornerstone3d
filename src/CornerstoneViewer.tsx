@@ -14,6 +14,7 @@ import {
   Enums as csToolsEnums,
   addTool,
 } from "@cornerstonejs/tools";
+import { Progress } from "./components/ui/progress";
 const { ViewportType } = Enums;
 
 const CornerstoneViewer = () => {
@@ -21,6 +22,9 @@ const CornerstoneViewer = () => {
   const [imageIds, setImageIds] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
@@ -121,9 +125,16 @@ const CornerstoneViewer = () => {
   }, [currentIndex, imageIds]);
 
   const handleFileUpload = async (files) => {
-    const parsedFiles = [];
     const fileArray = Array.from(files);
-    for (const file of fileArray) {
+    const totalFiles = fileArray.length;
+    if (totalFiles === 0) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    const parsedFiles = [];
+    for (let i = 0; i < totalFiles; i++) {
+      const file = fileArray[i];
       try {
         const arrayBuffer = await file.arrayBuffer();
         const byteArray = new Uint8Array(arrayBuffer);
@@ -134,19 +145,15 @@ const CornerstoneViewer = () => {
       } catch (error) {
         console.error("Error processing file:", file.name, error);
       }
+      console.log(uploadProgress);
+      setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
     }
     parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
     const newImageIds = parsedFiles.map((item) => item.imageId);
     setImageIds(newImageIds);
+    console.log(uploading);
   };
 
-  // const handleDrop = (e) => {
-  //   e.preventDefault();
-  //   const files = e.dataTransfer.files;
-  //   if (files.length > 0) {
-  //     handleFileUpload(files);
-  //   }
-  // };
   const handleDrop = async (e) => {
     e.preventDefault();
 
@@ -228,6 +235,11 @@ const CornerstoneViewer = () => {
       }}
     >
       {loading && <p>Loading Cornerstone...</p>}
+      {uploading && (
+        <div className="w-[60%]">
+          <Progress value={uploadProgress} />
+        </div>
+      )}
       <input
         type="file"
         accept=".dcm,image/dicom"
@@ -235,6 +247,7 @@ const CornerstoneViewer = () => {
         onChange={handleFileInput}
         style={{ marginBottom: "10px" }}
         webkitdirectory="true"
+        disabled={uploading}
       />
       <p>Drag and drop DICOM files here or click to upload.</p>
       <div ref={viewportRef} style={{ width: "100%", height: "500px" }} />
