@@ -9,6 +9,7 @@ import {
   init as cornerstoneToolsInit,
   ToolGroupManager,
   WindowLevelTool,
+  StackScrollTool,
   ZoomTool,
   Enums as csToolsEnums,
   addTool,
@@ -39,6 +40,7 @@ const CornerstoneViewer = () => {
       // Add tools
       addTool(WindowLevelTool);
       addTool(ZoomTool);
+      addTool(StackScrollTool);
       const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
       if (!toolGroup) {
         console.error("Failed to create tool group:", toolGroupId);
@@ -46,6 +48,7 @@ const CornerstoneViewer = () => {
       }
       toolGroup.addTool(WindowLevelTool.toolName);
       toolGroup.addTool(ZoomTool.toolName);
+      toolGroup.addTool(StackScrollTool.toolName);
       toolGroup.setToolActive(WindowLevelTool.toolName, {
         bindings: [
           {
@@ -57,6 +60,13 @@ const CornerstoneViewer = () => {
         bindings: [
           {
             mouseButton: csToolsEnums.MouseBindings.Secondary, // Right Click
+          },
+        ],
+      });
+      toolGroup.setToolActive(StackScrollTool.toolName, {
+        bindings: [
+          {
+            mouseButton: csToolsEnums.MouseBindings.Wheel, // Mouse Wheel
           },
         ],
       });
@@ -88,25 +98,28 @@ const CornerstoneViewer = () => {
     if (imageIds.length > 0 && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       const viewport = renderingEngine.getViewport(viewportId);
-      viewport.setStack(imageIds);
+      viewport.setStack(imageIds, 0);
       viewport.render();
     }
   }, [imageIds]);
 
   const handleFileUpload = async (files) => {
-    const newImageIds = [];
-    for (const file of files) {
+    const parsedFiles = [];
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
-        const sopInstanceUID = dataset.string("x00080018"); // SOP Instance UID
+        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
         const imageId = wadouri.fileManager.add(file);
-        newImageIds.push(imageId);
+        parsedFiles.push({ imageId, instanceNumber });
       } catch (error) {
         console.error("Error processing file:", file.name, error);
       }
     }
+    parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
+    const newImageIds = parsedFiles.map((item) => item.imageId);
     setImageIds(newImageIds);
   };
 
