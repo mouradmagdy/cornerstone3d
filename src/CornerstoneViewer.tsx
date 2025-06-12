@@ -13,9 +13,10 @@ import {
   ZoomTool,
   Enums as csToolsEnums,
   addTool,
+  LengthTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
-const { ViewportType } = Enums;
+const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ const CornerstoneViewer = () => {
       addTool(WindowLevelTool);
       addTool(ZoomTool);
       addTool(StackScrollTool);
+      addTool(LengthTool);
       const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
       if (!toolGroup) {
         console.error("Failed to create tool group:", toolGroupId);
@@ -56,6 +58,8 @@ const CornerstoneViewer = () => {
       toolGroup.addTool(WindowLevelTool.toolName);
       toolGroup.addTool(ZoomTool.toolName);
       toolGroup.addTool(StackScrollTool.toolName);
+      toolGroup.addTool(LengthTool.toolName);
+
       toolGroup.setToolActive(WindowLevelTool.toolName, {
         bindings: [
           {
@@ -74,6 +78,14 @@ const CornerstoneViewer = () => {
         bindings: [
           {
             mouseButton: csToolsEnums.MouseBindings.Wheel, // Mouse Wheel
+          },
+        ],
+      });
+      toolGroup.setToolActive(LengthTool.toolName, {
+        bindings: [
+          {
+            mouseButton: csToolsEnums.MouseBindings.Primary, // Left Click
+            modifierKey: csToolsEnums.KeyboardBindings.Ctrl,
           },
         ],
       });
@@ -104,7 +116,16 @@ const CornerstoneViewer = () => {
   useEffect(() => {
     if (imageIds.length > 0 && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
+      if (!renderingEngine) {
+        console.error("Rendering engine is not initialized.");
+        return;
+      }
       const viewport = renderingEngine.getViewport(viewportId);
+      if (!viewport) {
+        console.error("Viewport is not initialized.");
+        return;
+      }
+
       viewport.setStack(imageIds, currentIndex);
       viewport.render();
     }
@@ -145,13 +166,11 @@ const CornerstoneViewer = () => {
       } catch (error) {
         console.error("Error processing file:", file.name, error);
       }
-      console.log(uploadProgress);
       setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
     }
     parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
     const newImageIds = parsedFiles.map((item) => item.imageId);
     setImageIds(newImageIds);
-    console.log(uploading);
   };
 
   const handleDrop = async (e) => {
@@ -249,6 +268,7 @@ const CornerstoneViewer = () => {
         webkitdirectory="true"
         disabled={uploading}
       />
+      Zoom: {zoomLevel}%
       <p>Drag and drop DICOM files here or click to upload.</p>
       <div ref={viewportRef} style={{ width: "100%", height: "500px" }} />
     </div>
