@@ -16,6 +16,7 @@ import {
   LengthTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
+import { Upload } from "lucide-react";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -173,11 +174,11 @@ const CornerstoneViewer = () => {
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
         const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
-        const photometricInterpretation =
-          dataset.string("x00280004") || "MONOCHROME2"; // Photometric Interpretation
-        console.log(
-          `File: ${file.name}, PhotometricInterpretation: ${photometricInterpretation}`
-        );
+        // const photometricInterpretation =
+        //   dataset.string("x00280004") || "MONOCHROME2"; // Photometric Interpretation
+        // console.log(
+        //   `File: ${file.name}, PhotometricInterpretation: ${photometricInterpretation}`
+        // );
         const imageId = wadouri.fileManager.add(file);
         parsedFiles.push({ imageId, instanceNumber });
       } catch (error) {
@@ -258,25 +259,35 @@ const CornerstoneViewer = () => {
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      style={{
-        padding: "20px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        position: "relative",
-        zIndex: 1,
-        border: isDragging ? "2px dashed blue" : "2px dashed #ccc",
-        backgroundColor: isDragging ? "#f0f8ff" : "transparent",
-        // backgroundColor: "#f9f9f9",
-      }}
+      className="flex w-full h-full relative border-1 border-cyan-400 rounded-xl"
+      // style={{
+      //   padding: "20px",
+      //   display: "flex",
+      //   flexDirection: "column",
+      //   alignItems: "center",
+      //   position: "relative",
+      //   zIndex: 1,
+      //   border: isDragging ? "2px dashed blue" : "2px dashed #ccc",
+      //   backgroundColor: isDragging ? "#f0f8ff" : "transparent",
+      //   // backgroundColor: "#f9f9f9",
+      // }}
     >
-      {loading && <p>Loading Cornerstone...</p>}
-      {uploading && (
+      {/* {loading && <p>Loading Cornerstone...</p>} */}
+      {/* {uploading && (
         <div className="w-[60%]">
           <Progress value={uploadProgress} />
         </div>
-      )}
+      )} */}
+      {/* <label
+        htmlFor="file-upload"
+        className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
+      >
+        {" "}
+        <Upload className="w-6 h-6" aria-label="Upload" />
+        <span className="text-xs">Upload</span>
+      </label>
       <input
+        id="file-upload"
         type="file"
         accept=".dcm,image/dicom"
         multiple
@@ -284,10 +295,13 @@ const CornerstoneViewer = () => {
         style={{ marginBottom: "10px" }}
         webkitdirectory="true"
         disabled={uploading}
+      /> */}
+      {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
+      <div
+        ref={viewportRef}
+        //  style={{ width: "512px", height: "512px" }}
+        className="w-full-h-full flex-1 !rounded-xl overflow-hidden"
       />
-      Zoom: {(zoomLevel / 100).toFixed(2)}x
-      <p>Drag and drop DICOM files here or click to upload.</p>
-      <div ref={viewportRef} style={{ width: "100%", height: "500px" }} />
     </div>
   );
 };
