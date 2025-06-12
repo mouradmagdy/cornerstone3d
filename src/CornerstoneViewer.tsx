@@ -20,6 +20,7 @@ const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
   const [imageIds, setImageIds] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
@@ -139,13 +140,59 @@ const CornerstoneViewer = () => {
     setImageIds(newImageIds);
   };
 
-  const handleDrop = (e) => {
+  // const handleDrop = (e) => {
+  //   e.preventDefault();
+  //   const files = e.dataTransfer.files;
+  //   if (files.length > 0) {
+  //     handleFileUpload(files);
+  //   }
+  // };
+  const handleDrop = async (e) => {
     e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files);
+
+    const items = e.dataTransfer.items;
+    const files = [];
+
+    const readEntries = async (entry) => {
+      return new Promise((resolve) => {
+        if (entry.isFile) {
+          entry.file((file) => {
+            files.push(file);
+            resolve();
+          });
+        } else if (entry.isDirectory) {
+          const dirReader = entry.createReader();
+          dirReader.readEntries(async (entries) => {
+            for (const ent of entries) {
+              await readEntries(ent);
+            }
+            resolve();
+          });
+        }
+      });
+    };
+
+    const readAllEntries = async () => {
+      const promises = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry) {
+          promises.push(readEntries(entry));
+        }
+      }
+      await Promise.all(promises);
+      return files;
+    };
+
+    const allFiles = await readAllEntries();
+
+    if (allFiles.length > 0) {
+      handleFileUpload(allFiles);
+    } else {
+      console.warn("No files found in dropped folder");
     }
   };
+
   const handleFileInput = (e) => {
     const files = e.target.files;
     if (files.length > 0) {
@@ -155,17 +202,29 @@ const CornerstoneViewer = () => {
   const handleDragOver = (e) => {
     e.preventDefault();
   };
+  const handleDragEnter = (e) => {
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e) => {
+    setIsDragging(false);
+  };
 
   return (
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       style={{
         padding: "20px",
-        border: "2px dashed #ccc",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        position: "relative",
+        zIndex: 1,
+        border: isDragging ? "2px dashed blue" : "2px dashed #ccc",
+        backgroundColor: isDragging ? "#f0f8ff" : "transparent",
+        // backgroundColor: "#f9f9f9",
       }}
     >
       {loading && <p>Loading Cornerstone...</p>}
@@ -175,6 +234,7 @@ const CornerstoneViewer = () => {
         multiple
         onChange={handleFileInput}
         style={{ marginBottom: "10px" }}
+        webkitdirectory="true"
       />
       <p>Drag and drop DICOM files here or click to upload.</p>
       <div ref={viewportRef} style={{ width: "100%", height: "500px" }} />
