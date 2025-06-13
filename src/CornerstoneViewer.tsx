@@ -26,11 +26,15 @@ import {
   Search,
   Upload,
 } from "lucide-react";
+import TestBar from "./components/TestBar";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
-  const [imageIds, setImageIds] = useState([]);
+  const [studies, setStudies] = useState([]);
+  const [selectedSeries, setSelectedSeries] = useState(null);
+  const [error, setError] = useState(null);
+  // const [imageIds, setImageIds] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -96,14 +100,6 @@ const CornerstoneViewer = () => {
           },
         ],
       });
-      // toolGroup.setToolActive(LengthTool.toolName, {
-      //   bindings: [
-      //     {
-      //       mouseButton: csToolsEnums.MouseBindings.Primary, // Left Click
-      //       modifierKey: csToolsEnums.KeyboardBindings.Ctrl,
-      //     },
-      //   ],
-      // });
 
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);
@@ -138,7 +134,7 @@ const CornerstoneViewer = () => {
   }, []);
 
   useEffect(() => {
-    if (imageIds.length > 0 && renderingEngineRef.current) {
+    if (selectedSeries && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       if (!renderingEngine) {
         console.error("Rendering engine is not initialized.");
@@ -149,6 +145,7 @@ const CornerstoneViewer = () => {
         console.error("Viewport is not initialized.");
         return;
       }
+      const imageIds = selectedSeries.images.map((img) => img.imageId);
       console.log(viewport);
       console.log(viewport.getZoom());
       viewport.setZoom(zoomLevel / 100);
@@ -156,32 +153,32 @@ const CornerstoneViewer = () => {
       viewport.setStack(imageIds, currentIndex);
       viewport.render();
     }
-  }, [imageIds, currentIndex, zoomLevel]);
+  }, [selectedSeries, currentIndex, zoomLevel]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (!selectedSeries) return;
       if (e.key === "ArrowLeft" && currentIndex > 0) {
         setCurrentIndex((prev) => prev - 1);
       }
-      if (e.key === "ArrowRight" && currentIndex < imageIds.length - 1) {
+      if (
+        e.key === "ArrowRight" &&
+        currentIndex < selectedSeries.images.length - 1
+      ) {
         setCurrentIndex((prev) => prev + 1);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, imageIds]);
+  }, [currentIndex, selectedSeries]);
 
   const activateTool = (toolName) => {
     const toolGroup = toolGroupRef.current;
     if (!toolGroup) return;
     [WindowLevelTool.toolName, LengthTool.toolName, PanTool.toolName].forEach(
       (tool) => {
-        if (
-          tool != ZoomTool.toolName &&
-          tool !== StackScrollTool.toolName &&
-          tool !== PanTool.toolName
-        ) {
+        if (tool != ZoomTool.toolName && tool !== StackScrollTool.toolName) {
           toolGroup.setToolPassive(tool);
         }
       }
@@ -214,16 +211,24 @@ const CornerstoneViewer = () => {
 
     setUploading(true);
     setUploadProgress(0);
+    const studyMap = new Map();
 
     const parsedFiles = [];
-    for (let i = 0; i < totalFiles; i++) {
-      const file = fileArray[i];
-      try {
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        const file = fileArray[i];
         const arrayBuffer = await file.arrayBuffer();
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
         const transferSyntaxUID = dataset.string("x00020010");
-
+        const studyUID = dataset.string("x0020000d"); // study
+        console.log("Study UID:", studyUID);
+        const seriesUID = dataset.string("x0020000e"); // series
+        console.log("Series UID:", seriesUID);
+        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
+        const seriesDescription =
+          dataset.string("x0008103e") || `Series ${seriesUID.slice(-8)}`;
+        const seriesNumber = dataset.intString("x00200011") || 0;
         if (!transferSyntaxUID) {
           console.warn(`No transfer syntax found for file: ${file.name}`);
           continue;
@@ -231,20 +236,90 @@ const CornerstoneViewer = () => {
         console.log(
           `Processing file: ${file.name}, Transfer Syntax UID: ${transferSyntaxUID}`
         );
-
-        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
+        if (!studyUID || !seriesUID) {
+          console.warn(`Missing Study or Series UID for file: ${file.name}`);
+          continue;
+        }
 
         const imageId = wadouri.fileManager.add(file);
-        parsedFiles.push({ imageId, instanceNumber });
-      } catch (error) {
-        console.error("Error processing file:", file.name, error);
+        if (!studyMap.has(studyUID)) {
+          studyMap.set(studyUID, {
+            studyUID,
+            studyDescription:
+              dataset.string("x00081030") || `Study ${studyUID.slice(-8)}`,
+            seriesMap: new Map(),
+          });
+        }
+        const study = studyMap.get(studyUID);
+        if (!study.seriesMap.has(seriesUID)) {
+          study.seriesMap.set(seriesUID, {
+            seriesUID,
+            seriesDescription,
+            seriesNumber,
+            images: [],
+          });
+        }
+        study.seriesMap.get(seriesUID).images.push({ imageId, instanceNumber });
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+        // parsedFiles.push({ imageId, instanceNumber });
       }
-      setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+      const newStudies = Array.from(studyMap.values()).map((study) => ({
+        ...study,
+        series: Array.from(study.seriesMap.values()).map((series) => ({
+          ...(series as object), // potentially error
+          images: series.images.sort(
+            (a, b) => a.instanceNumber - b.instanceNumber
+          ),
+        })),
+      }));
+      setStudies((prevStudies) => {
+        const updatedStudies = [...prevStudies];
+        newStudies.forEach((newStudy) => {
+          const existingStudyIndex = updatedStudies.findIndex(
+            (s) => s.studyUID === newStudy.studyUID
+          );
+          if (existingStudyIndex >= 0) {
+            newStudy.series.forEach((newSeries) => {
+              const existingSeriesIndex = updatedStudies[
+                existingStudyIndex
+              ].series.findIndex((s) => s.seriesUID === newSeries.seriesUID);
+              if (existingSeriesIndex >= 0) {
+                updatedStudies[existingSeriesIndex].series[
+                  existingSeriesIndex
+                ].images = [
+                  ...updatedStudies[existingSeriesIndex].series[
+                    existingSeriesIndex
+                  ].images,
+                  ...newSeries.images,
+                ].sort((a, b) => a.instanceNumber - b.instanceNumber);
+              } else {
+                updatedStudies[existingStudyIndex].series.push(newSeries);
+              }
+            });
+          } else {
+            updatedStudies.push(newStudy);
+          }
+        });
+        return updatedStudies;
+      });
+      if (
+        !selectedSeries &&
+        newStudies.length > 0 &&
+        newStudies[0].series.length > 0
+      ) {
+        setSelectedSeries(newStudies[0].series[0]);
+        setCurrentIndex(0);
+      }
+    } catch (error) {
+      console.error("Error processing file:", file.name, error);
+    } finally {
+      setUploading(false);
+      // setUploadProgress(100);
     }
-    parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
-    const newImageIds = parsedFiles.map((item) => item.imageId);
-    setImageIds(newImageIds);
-    setUploading(false);
+    // parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
+    // const newImageIds = parsedFiles.map((item) => item.imageId);
+    // setImageIds(newImageIds);
+    // setUploading(false);
   };
 
   const handleDrop = async (e) => {
@@ -309,101 +384,116 @@ const CornerstoneViewer = () => {
     setIsDragging(false);
   };
 
+  const handleSeriesSelect = (series) => {
+    setSelectedSeries(series);
+    setCurrentIndex(0);
+  };
+  console.log(currentIndex);
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      className="flex flex-col w-full h-full relative border-1 border-cyan-400 rounded-xl"
-    >
-      {/* {loading && <p>Loading Cornerstone...</p>} */}
-      {uploading && (
-        <div className="w-[60%]">
-          <Progress value={uploadProgress} />
-        </div>
-      )}
-      <div className="flex items-center justify-center gap-2 mb-2">
-        <label
-          htmlFor="file-upload"
-          className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
-        >
-          {" "}
-          <Upload className="w-6 h-6" aria-label="Upload" />
-          <span className="text-xs">Upload</span>
-        </label>
-        <input
-          id="file-upload"
-          type="file"
-          accept=".dcm,image/dicom"
-          multiple
-          onChange={handleFileInput}
-          webkitdirectory="true"
-          disabled={uploading}
-          className="hidden"
-        />
-        <button
-          onClick={() => activateTool(WindowLevelTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-          title="Brightness/Contrast"
-        >
-          <Ban className="w-6 h-6" />
-        </button>
-        <button
-          onClick={() => activateTool(LengthTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-          title="Measure"
-        >
-          <Ruler className="w-6 h-6" />
-        </button>
-        <button
-          onClick={() => activateTool(ZoomTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-          title="Zoom"
-        >
-          <Search />
-        </button>
-        <button
-          onClick={() => activateTool(PanTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-          title="Pan"
-        >
-          <Move className="w-6 h-6" />
-        </button>
-      </div>
-      <div className="flex items-center mb-2">
-        <button className="cursor-pointer">
-          <ChevronLeft
-            onClick={() => {
-              if (currentIndex > 0) {
-                setCurrentIndex((prev) => prev - 1);
-              }
-            }}
-            className="w-6 h-6"
-          />
-        </button>
-        <button className="cursor-pointer">
-          <ChevronRight
-            onClick={() => {
-              if (currentIndex < imageIds.length - 1) {
-                setCurrentIndex((prev) => prev + 1);
-              }
-            }}
-            className="w-6 h-6"
-          />
-        </button>
-      </div>
-      {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
-      {imageIds.length > 0 && (
-        <div className="">
-          ({currentIndex + 1}/{imageIds.length})
-        </div>
-      )}
-      <div
-        ref={viewportRef}
-        //  style={{ width: "512px", height: "512px" }}
-        className="w-full-h-full flex-1 !rounded-xl overflow-hidden"
+    <div className="flex w-full h-full">
+      <TestBar
+        studies={studies}
+        onSeriesSelect={handleSeriesSelect}
+        selectedSeriesUID={selectedSeries?.seriesUID}
       />
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        className="flex flex-col w-full h-full relative border-1 border-cyan-400 rounded-xl"
+      >
+        {/* {loading && <p>Loading Cornerstone...</p>} */}
+        {uploading && (
+          <div className="w-[60%]">
+            <Progress value={uploadProgress} />
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <label
+            htmlFor="file-upload"
+            className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
+          >
+            {" "}
+            <Upload className="w-6 h-6" aria-label="Upload" />
+            <span className="text-xs">Upload</span>
+          </label>
+          <input
+            id="file-upload"
+            type="file"
+            accept=".dcm,image/dicom"
+            multiple
+            onChange={handleFileInput}
+            webkitdirectory="true"
+            disabled={uploading}
+            className="hidden"
+          />
+          <button
+            onClick={() => activateTool(WindowLevelTool.toolName)}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+            title="Brightness/Contrast"
+          >
+            <Ban className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => activateTool(LengthTool.toolName)}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+            title="Measure"
+          >
+            <Ruler className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => activateTool(ZoomTool.toolName)}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+            title="Zoom"
+          >
+            <Search />
+          </button>
+          <button
+            onClick={() => activateTool(PanTool.toolName)}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+            title="Pan"
+          >
+            <Move className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex items-center mb-2">
+          <button className="cursor-pointer">
+            <ChevronLeft
+              onClick={() => {
+                if (currentIndex > 0) {
+                  setCurrentIndex((prev) => prev - 1);
+                }
+              }}
+              className="w-6 h-6"
+            />
+          </button>
+          <button className="cursor-pointer">
+            <ChevronRight
+              onClick={() => {
+                if (
+                  selectedSeries &&
+                  currentIndex < selectedSeries.images.length - 1
+                ) {
+                  setCurrentIndex((prev) => prev + 1);
+                }
+              }}
+              className="w-6 h-6"
+            />
+          </button>
+        </div>
+        {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
+        {selectedSeries && (
+          <div className="">
+            ({currentIndex + 1}/{selectedSeries?.images.length})
+          </div>
+        )}
+        <div
+          ref={viewportRef}
+          //  style={{ width: "512px", height: "512px" }}
+          className="w-full-h-full flex-1 !rounded-xl overflow-hidden"
+        />
+      </div>
     </div>
   );
 };
