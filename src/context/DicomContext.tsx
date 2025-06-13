@@ -235,6 +235,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         setIsDragging,
         handleDrop,
         dicomMetadata,
+        uploadProgress,
         // activateTool,
       }}
     >

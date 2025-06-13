@@ -16,7 +16,15 @@ import {
   PanTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { useDicomContext } from "./context/DicomContext";
 import { useToolContext } from "./context/ToolContext";
 import toast from "react-hot-toast";
@@ -25,22 +33,20 @@ const { ViewportType, Events } = Enums;
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
   const {
-    setStudies,
     selectedSeries,
-    handleSeriesSelect,
     currentIndex,
     setCurrentIndex,
     setIsDragging,
     handleDrop,
     dicomMetadata,
+    uploading,
+    uploadProgress,
   } = useDicomContext();
 
   const { activateTool, toolGroupRef } = useToolContext();
   const [error, setError] = useState(null);
   const [metadata, setMetadata] = useState(null);
-
   const [zoomLevel, setZoomLevel] = useState(100);
-  // const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
 
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
@@ -48,23 +54,7 @@ const CornerstoneViewer = () => {
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
-  useEffect(() => {
-    console.log("useEffect triggered:", { selectedSeries, dicomMetadata }); // Debug
-    if (!selectedSeries) {
-      setMetadata(null);
-      return;
-    }
-    const studyUID = selectedSeries.studyUID;
-    console.log("Study UID from selectedSeries:", studyUID); // Debug
-    const meta = dicomMetadata[studyUID];
-    if (!meta) {
-      toast.error(`No metadata found for study UID: ${studyUID}`);
-      setMetadata(null);
-      return;
-    }
-    setMetadata(meta);
-    console.log("Metadata set to:", meta); // Debug
-  }, [dicomMetadata, selectedSeries]);
+
   useEffect(() => {
     const initCornerstone = async () => {
       if (initializedRef.current) {
@@ -97,21 +87,21 @@ const CornerstoneViewer = () => {
       toolGroup.setToolActive(WindowLevelTool.toolName, {
         bindings: [
           {
-            mouseButton: csToolsEnums.MouseBindings.Primary, // Left Click
+            mouseButton: csToolsEnums.MouseBindings.Primary,
           },
         ],
       });
       toolGroup.setToolActive(ZoomTool.toolName, {
         bindings: [
           {
-            mouseButton: csToolsEnums.MouseBindings.Secondary, // Right Click
+            mouseButton: csToolsEnums.MouseBindings.Secondary,
           },
         ],
       });
       toolGroup.setToolActive(StackScrollTool.toolName, {
         bindings: [
           {
-            mouseButton: csToolsEnums.MouseBindings.Wheel, // Mouse Wheel
+            mouseButton: csToolsEnums.MouseBindings.Wheel,
           },
         ],
       });
@@ -202,6 +192,21 @@ const CornerstoneViewer = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentIndex, setCurrentIndex, selectedSeries]);
 
+  useEffect(() => {
+    if (!selectedSeries) {
+      setMetadata(null);
+      return;
+    }
+    const studyUID = selectedSeries.studyUID;
+    const meta = dicomMetadata[studyUID];
+    if (!meta) {
+      toast.error(`No metadata found for study UID: ${studyUID}`);
+      setMetadata(null);
+      return;
+    }
+    setMetadata(meta);
+  }, [dicomMetadata, selectedSeries]);
+
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -214,6 +219,21 @@ const CornerstoneViewer = () => {
 
   return (
     <div className="flex relative w-full h-full">
+      <Dialog open={uploading}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <Upload className="text-blue-700 w-5 h-5" />
+                Uploading DICOM files
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="w-[60%]">
+            <Progress value={uploadProgress} />
+          </div>
+        </DialogContent>
+      </Dialog>
       <div
         ref={viewportRef}
         onDrop={handleDrop}
@@ -253,21 +273,23 @@ const CornerstoneViewer = () => {
             />
           </button>
         </div>{" "}
-        <div className="absolute flex flex-col top-10 text-sm right-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
-          <span className="z-10 text-blue-700">
-            <span className="text-white">Patient Name: </span>
-            {metadata.patientName}
-          </span>
-          <span className="z-10 text-blue-700">
-            <span className="text-white">Patient ID: </span>
-            {metadata.patientId}
-          </span>
-        </div>
+        {metadata && (
+          <div className="absolute flex flex-col top-10 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Patient Name: </span>
+              {metadata.patientName}
+            </span>
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Patient ID: </span>
+              {metadata.patientId}
+            </span>
+          </div>
+        )}
         <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
           Zoom: {(zoomLevel / 100).toFixed(2)}x{" "}
         </div>
         {metadata && (
-          <div className="absolute bottom-3 text-sm right-2 flex flex-col text-white  bg-opacity-50 px-2 py-1 rounded z-10">
+          <div className="absolute top-10 text-sm right-2 flex flex-col text-white  bg-opacity-50 px-2 py-1 rounded z-10">
             <span className="z-10 text-blue-700">
               <span className="text-white">Gender </span>
               {metadata.gender}
@@ -284,9 +306,3 @@ const CornerstoneViewer = () => {
 };
 
 export default CornerstoneViewer;
-
-/* {uploading && (
-          <div className="w-[60%]">
-          <Progress value={uploadProgress} />
-          </div>
-          )} */
