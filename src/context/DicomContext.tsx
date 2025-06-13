@@ -7,17 +7,6 @@ import React, {
 import dicomParser from "dicom-parser";
 import { wadouri } from "@cornerstonejs/dicom-image-loader";
 
-import {
-  init as cornerstoneToolsInit,
-  ToolGroupManager,
-  WindowLevelTool,
-  StackScrollTool,
-  ZoomTool,
-  Enums as csToolsEnums,
-  addTool,
-  LengthTool,
-  PanTool,
-} from "@cornerstonejs/tools";
 interface DicomContextType {
   studies: any[];
   setStudies: (studies: any[]) => void;
@@ -37,12 +26,16 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dicomMetadata, setDicomMetadata] = useState<{ [key: string]: any }>(
+    {}
+  );
 
   const handleSeriesSelect = (series) => {
     setSelectedSeries(series);
     setCurrentIndex(0);
   };
   const selectedSeriesUID = selectedSeries?.seriesUID;
+
   const handleFileUpload = async (files: FileList) => {
     const fileArray = Array.from(files);
     const totalFiles = fileArray.length;
@@ -53,6 +46,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
     const studyMap = new Map();
 
     try {
+      const metadata = {};
       for (let i = 0; i < totalFiles; i++) {
         const file = fileArray[i];
         const arrayBuffer = await file.arrayBuffer();
@@ -60,20 +54,20 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         const dataset = dicomParser.parseDicom(byteArray);
         const transferSyntaxUID = dataset.string("x00020010");
         const studyUID = dataset.string("x0020000d"); // study
-        console.log("Study UID:", studyUID);
         const seriesUID = dataset.string("x0020000e"); // series
-        console.log("Series UID:", seriesUID);
         const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
         const seriesDescription =
           dataset.string("x0008103e") || `Series ${seriesUID.slice(-8)}`;
         const seriesNumber = dataset.intString("x00200011") || 0;
+        const patientName = dataset.string("x00100010") || "Unknown";
+        const patientId = dataset.string("x00100020") || "Unknown";
+        const gender = dataset.string("x00100040") || "Unknown";
+        const modality = dataset.string("x00080060") || "Unknown";
         if (!transferSyntaxUID) {
           console.warn(`No transfer syntax found for file: ${file.name}`);
           continue;
         }
-        console.log(
-          `Processing file: ${file.name}, Transfer Syntax UID: ${transferSyntaxUID}`
-        );
+
         if (!studyUID || !seriesUID) {
           console.warn(`Missing Study or Series UID for file: ${file.name}`);
           continue;
@@ -91,20 +85,32 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         const study = studyMap.get(studyUID);
         if (!study.seriesMap.has(seriesUID)) {
           study.seriesMap.set(seriesUID, {
+            studyUID,
             seriesUID,
             seriesDescription,
             seriesNumber,
             images: [],
+            thumbnail: null,
           });
         }
-        study.seriesMap.get(seriesUID).images.push({ imageId, instanceNumber });
+        const series = study.seriesMap.get(seriesUID);
+        series.images.push({ imageId, instanceNumber });
+
+        if (!metadata[studyUID]) {
+          metadata[studyUID] = {
+            patientName,
+            patientId,
+            gender,
+            modality,
+          };
+        }
+
         setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-        // parsedFiles.push({ imageId, instanceNumber });
       }
       const newStudies = Array.from(studyMap.values()).map((study) => ({
         ...study,
         series: Array.from(study.seriesMap.values()).map((series) => ({
-          ...(series as object), // potentially error
+          ...(series as object),
           images: series.images.sort(
             (a, b) => a.instanceNumber - b.instanceNumber
           ),
@@ -140,6 +146,10 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         });
         return updatedStudies;
       });
+      setDicomMetadata((prevMetadata) => ({
+        ...prevMetadata,
+        ...metadata,
+      }));
       if (
         !selectedSeries &&
         newStudies.length > 0 &&
@@ -224,6 +234,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         isDragging,
         setIsDragging,
         handleDrop,
+        dicomMetadata,
         // activateTool,
       }}
     >

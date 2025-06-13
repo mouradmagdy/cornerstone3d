@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import dicomParser from "dicom-parser";
 import { init as coreInit, RenderingEngine, Enums } from "@cornerstonejs/core";
 import {
   init as dicomImageLoaderInit,
@@ -17,17 +16,10 @@ import {
   PanTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
-import {
-  Ban,
-  ChevronLeft,
-  ChevronRight,
-  Move,
-  Ruler,
-  Search,
-  Upload,
-} from "lucide-react";
-import { DicomProvider, useDicomContext } from "./context/DicomContext";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useDicomContext } from "./context/DicomContext";
 import { useToolContext } from "./context/ToolContext";
+import toast from "react-hot-toast";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -40,10 +32,12 @@ const CornerstoneViewer = () => {
     setCurrentIndex,
     setIsDragging,
     handleDrop,
+    dicomMetadata,
   } = useDicomContext();
 
   const { activateTool, toolGroupRef } = useToolContext();
   const [error, setError] = useState(null);
+  const [metadata, setMetadata] = useState(null);
 
   const [zoomLevel, setZoomLevel] = useState(100);
   // const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
@@ -54,7 +48,23 @@ const CornerstoneViewer = () => {
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
-
+  useEffect(() => {
+    console.log("useEffect triggered:", { selectedSeries, dicomMetadata }); // Debug
+    if (!selectedSeries) {
+      setMetadata(null);
+      return;
+    }
+    const studyUID = selectedSeries.studyUID;
+    console.log("Study UID from selectedSeries:", studyUID); // Debug
+    const meta = dicomMetadata[studyUID];
+    if (!meta) {
+      toast.error(`No metadata found for study UID: ${studyUID}`);
+      setMetadata(null);
+      return;
+    }
+    setMetadata(meta);
+    console.log("Metadata set to:", meta); // Debug
+  }, [dicomMetadata, selectedSeries]);
   useEffect(() => {
     const initCornerstone = async () => {
       if (initializedRef.current) {
@@ -121,7 +131,6 @@ const CornerstoneViewer = () => {
         defaultOptions: {},
       });
 
-      console.log(viewportElement);
       viewportElement.addEventListener(Events.CAMERA_MODIFIED, () => {
         const viewport = renderingEngine.getViewport(viewportId);
         if (viewport) {
@@ -211,15 +220,15 @@ const CornerstoneViewer = () => {
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
-        className="w-full h-full bg-black relative overflow-hidden border-1 border-cyan-400 rounded-xl"
+        className="w-full h-full  relative overflow-hidden border-1 border-blue-700 rounded-xl"
       >
         {selectedSeries && (
-          <div className="absolute text-sm top-2 left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+          <div className="absolute text-sm top-2 left-2 text-white bg-opacity-50 px-2 py-1 rounded z-10">
             I:{currentIndex + 1} ({currentIndex + 1}/
             {selectedSeries?.images.length})
           </div>
         )}
-        <div className="flex items-center absolute top-2 right-2">
+        <div className="flex items-center absolute top-2 right-2 z-10">
           <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
             <ChevronLeft
               onClick={() => {
@@ -244,22 +253,40 @@ const CornerstoneViewer = () => {
             />
           </button>
         </div>{" "}
-        <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+        <div className="absolute flex flex-col top-10 text-sm right-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
+          <span className="z-10 text-blue-700">
+            <span className="text-white">Patient Name: </span>
+            {metadata.patientName}
+          </span>
+          <span className="z-10 text-blue-700">
+            <span className="text-white">Patient ID: </span>
+            {metadata.patientId}
+          </span>
+        </div>
+        <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
           Zoom: {(zoomLevel / 100).toFixed(2)}x{" "}
         </div>
+        {metadata && (
+          <div className="absolute bottom-3 text-sm right-2 flex flex-col text-white  bg-opacity-50 px-2 py-1 rounded z-10">
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Gender </span>
+              {metadata.gender}
+            </span>
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Modality: </span>
+              {metadata.modality}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default CornerstoneViewer;
-{
-  /* {uploading && (
+
+/* {uploading && (
           <div className="w-[60%]">
           <Progress value={uploadProgress} />
           </div>
           )} */
-}
-{
-  /* Zoom: {(zoomLevel / 100).toFixed(2)}x */
-}
