@@ -244,6 +244,7 @@ const CornerstoneViewer = () => {
     parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
     const newImageIds = parsedFiles.map((item) => item.imageId);
     setImageIds(newImageIds);
+    setUploading(false);
   };
 
   const handleDrop = async (e) => {
