@@ -4,7 +4,7 @@ const Sidebar = () => {
   const { studies, handleSeriesSelect, selectedSeriesUID } = useDicomContext();
   return (
     <aside
-      className={`overflow-y-auto w-full  text-sidebar-foreground border-muted left-0 top-16 h-[calc(100vh-4rem)]  border-r  flex flex-col items-center transition-all duration-300 `}
+      className={`overflow-y-auto w-full bg-black rounded-xl text-white border-muted left-0 top-16 h-[calc(100vh-4rem)] flex flex-col items-center transition-all duration-300 `}
     >
       <h2>Studies</h2>
       {studies.length === 0 ? (
