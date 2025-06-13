@@ -26,22 +26,27 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import { useDicomContext } from "./context/DicomContext";
+import { DicomProvider, useDicomContext } from "./context/DicomContext";
+import { useToolContext } from "./context/ToolContext";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
-  // const [studies, setStudies] = useState([]);
-  // const [selectedSeries, setSelectedSeries] = useState(null);
-  const { setStudies, selectedSeries, handleSeriesSelect } = useDicomContext();
+  const {
+    setStudies,
+    selectedSeries,
+    handleSeriesSelect,
+    currentIndex,
+    setCurrentIndex,
+    setIsDragging,
+    handleDrop,
+  } = useDicomContext();
+
+  const { activateTool, toolGroupRef } = useToolContext();
   const [error, setError] = useState(null);
-  // const [imageIds, setImageIds] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploading, setUploading] = useState(false);
+
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
+  // const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
 
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
@@ -49,7 +54,6 @@ const CornerstoneViewer = () => {
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
-  const toolGroupRef = useRef(null);
 
   useEffect(() => {
     const initCornerstone = async () => {
@@ -106,8 +110,6 @@ const CornerstoneViewer = () => {
       const renderingEngine = new RenderingEngine(renderingEngineId);
       renderingEngineRef.current = renderingEngine;
       const viewportElement = viewportRef.current;
-      viewportElement.style.width = "500px";
-      viewportElement.style.height = "500px";
 
       // Set up viewport
       toolGroup.addViewport(viewportId, renderingEngineId);
@@ -128,11 +130,22 @@ const CornerstoneViewer = () => {
         }
       });
 
+      const handleStackScroll = (e) => {
+        const viewport = renderingEngineRef.current.getViewport(viewportId);
+        const currentImageIndex = viewport.getCurrentImageIdIndex();
+        setCurrentIndex(currentImageIndex);
+      };
+
+      viewportElement.addEventListener(
+        csToolsEnums.Events.MOUSE_WHEEL,
+        handleStackScroll
+      );
+
       setLoading(false);
     };
 
     initCornerstone();
-  }, []);
+  }, [setCurrentIndex, toolGroupRef]);
 
   useEffect(() => {
     if (selectedSeries && renderingEngineRef.current) {
@@ -151,7 +164,13 @@ const CornerstoneViewer = () => {
       console.log(viewport.getZoom());
       viewport.setZoom(zoomLevel / 100);
 
-      viewport.setStack(imageIds, currentIndex);
+      const cacheSize = Math.min(
+        100,
+        Math.floor(selectedSeries.images.length / 2)
+      );
+      viewport.setStack(imageIds, currentIndex, {
+        cacheSize,
+      });
       viewport.render();
     }
   }, [selectedSeries, currentIndex, zoomLevel]);
@@ -172,209 +191,8 @@ const CornerstoneViewer = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, selectedSeries]);
+  }, [currentIndex, setCurrentIndex, selectedSeries]);
 
-  const activateTool = (toolName) => {
-    const toolGroup = toolGroupRef.current;
-    if (!toolGroup) return;
-    [WindowLevelTool.toolName, LengthTool.toolName, PanTool.toolName].forEach(
-      (tool) => {
-        if (tool != ZoomTool.toolName && tool !== StackScrollTool.toolName) {
-          toolGroup.setToolPassive(tool);
-        }
-      }
-    );
-    if (toolName === LengthTool.toolName) {
-      toolGroup.setToolActive(LengthTool.toolName, {
-        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
-      });
-    } else if (toolName === WindowLevelTool.toolName) {
-      toolGroup.setToolActive(WindowLevelTool.toolName, {
-        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
-      });
-    } else if (toolName === PanTool.toolName) {
-      toolGroup.setToolActive(PanTool.toolName, {
-        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
-      });
-    } else if (toolName === ZoomTool.toolName) {
-      toolGroup.setToolActive(ZoomTool.toolName, {
-        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
-      });
-    }
-
-    setActiveTool(toolName);
-  };
-
-  const handleFileUpload = async (files) => {
-    const fileArray = Array.from(files);
-    const totalFiles = fileArray.length;
-    if (totalFiles === 0) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-    const studyMap = new Map();
-
-    const parsedFiles = [];
-    try {
-      for (let i = 0; i < totalFiles; i++) {
-        const file = fileArray[i];
-        const arrayBuffer = await file.arrayBuffer();
-        const byteArray = new Uint8Array(arrayBuffer);
-        const dataset = dicomParser.parseDicom(byteArray);
-        const transferSyntaxUID = dataset.string("x00020010");
-        const studyUID = dataset.string("x0020000d"); // study
-        console.log("Study UID:", studyUID);
-        const seriesUID = dataset.string("x0020000e"); // series
-        console.log("Series UID:", seriesUID);
-        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
-        const seriesDescription =
-          dataset.string("x0008103e") || `Series ${seriesUID.slice(-8)}`;
-        const seriesNumber = dataset.intString("x00200011") || 0;
-        if (!transferSyntaxUID) {
-          console.warn(`No transfer syntax found for file: ${file.name}`);
-          continue;
-        }
-        console.log(
-          `Processing file: ${file.name}, Transfer Syntax UID: ${transferSyntaxUID}`
-        );
-        if (!studyUID || !seriesUID) {
-          console.warn(`Missing Study or Series UID for file: ${file.name}`);
-          continue;
-        }
-
-        const imageId = wadouri.fileManager.add(file);
-        if (!studyMap.has(studyUID)) {
-          studyMap.set(studyUID, {
-            studyUID,
-            studyDescription:
-              dataset.string("x00081030") || `Study ${studyUID.slice(-8)}`,
-            seriesMap: new Map(),
-          });
-        }
-        const study = studyMap.get(studyUID);
-        if (!study.seriesMap.has(seriesUID)) {
-          study.seriesMap.set(seriesUID, {
-            seriesUID,
-            seriesDescription,
-            seriesNumber,
-            images: [],
-          });
-        }
-        study.seriesMap.get(seriesUID).images.push({ imageId, instanceNumber });
-        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-        // parsedFiles.push({ imageId, instanceNumber });
-      }
-      const newStudies = Array.from(studyMap.values()).map((study) => ({
-        ...study,
-        series: Array.from(study.seriesMap.values()).map((series) => ({
-          ...(series as object), // potentially error
-          images: series.images.sort(
-            (a, b) => a.instanceNumber - b.instanceNumber
-          ),
-        })),
-      }));
-      setStudies((prevStudies) => {
-        const updatedStudies = [...prevStudies];
-        newStudies.forEach((newStudy) => {
-          const existingStudyIndex = updatedStudies.findIndex(
-            (s) => s.studyUID === newStudy.studyUID
-          );
-          if (existingStudyIndex >= 0) {
-            newStudy.series.forEach((newSeries) => {
-              const existingSeriesIndex = updatedStudies[
-                existingStudyIndex
-              ].series.findIndex((s) => s.seriesUID === newSeries.seriesUID);
-              if (existingSeriesIndex >= 0) {
-                updatedStudies[existingSeriesIndex].series[
-                  existingSeriesIndex
-                ].images = [
-                  ...updatedStudies[existingSeriesIndex].series[
-                    existingSeriesIndex
-                  ].images,
-                  ...newSeries.images,
-                ].sort((a, b) => a.instanceNumber - b.instanceNumber);
-              } else {
-                updatedStudies[existingStudyIndex].series.push(newSeries);
-              }
-            });
-          } else {
-            updatedStudies.push(newStudy);
-          }
-        });
-        return updatedStudies;
-      });
-      if (
-        !selectedSeries &&
-        newStudies.length > 0 &&
-        newStudies[0].series.length > 0
-      ) {
-        handleSeriesSelect(newStudies[0].series[0]);
-        setCurrentIndex(0);
-      }
-    } catch (error) {
-      console.error("Error processing file:", file.name, error);
-    } finally {
-      setUploading(false);
-      // setUploadProgress(100);
-    }
-    // parsedFiles.sort((a, b) => a.instanceNumber - b.instanceNumber);
-    // const newImageIds = parsedFiles.map((item) => item.imageId);
-    // setImageIds(newImageIds);
-    // setUploading(false);
-  };
-
-  const handleDrop = async (e) => {
-    e.preventDefault();
-
-    const items = e.dataTransfer.items;
-    const files = [];
-
-    const readEntries = async (entry) => {
-      return new Promise((resolve) => {
-        if (entry.isFile) {
-          entry.file((file) => {
-            files.push(file);
-            resolve();
-          });
-        } else if (entry.isDirectory) {
-          const dirReader = entry.createReader();
-          dirReader.readEntries(async (entries) => {
-            for (const ent of entries) {
-              await readEntries(ent);
-            }
-            resolve();
-          });
-        }
-      });
-    };
-
-    const readAllEntries = async () => {
-      const promises = [];
-      for (let i = 0; i < items.length; i++) {
-        const entry = items[i].webkitGetAsEntry?.();
-        if (entry) {
-          promises.push(readEntries(entry));
-        }
-      }
-      await Promise.all(promises);
-      return files;
-    };
-
-    const allFiles = await readAllEntries();
-
-    if (allFiles.length > 0) {
-      handleFileUpload(allFiles);
-    } else {
-      console.warn("No files found in dropped folder");
-    }
-  };
-
-  const handleFileInput = (e) => {
-    const files = e.target.files;
-    if (files.length > 0) {
-      handleFileUpload(files);
-    }
-  };
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -385,90 +203,34 @@ const CornerstoneViewer = () => {
     setIsDragging(false);
   };
 
-  // const handleSeriesSelect = (series) => {
-  //   setSelectedSeries(series);
-  //   setCurrentIndex(0);
-  // };
   return (
-    <div className="flex w-full h-full">
-      {/* <TestBar
-        studies={studies}
-        onSeriesSelect={handleSeriesSelect}
-        selectedSeriesUID={selectedSeries?.seriesUID}
-      /> */}
+    <div className="flex relative w-full h-full">
       <div
+        ref={viewportRef}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
-        className="flex flex-col w-full h-full relative border-1 border-cyan-400 rounded-xl"
+        className="w-full h-full bg-black relative overflow-hidden border-1 border-cyan-400 rounded-xl"
       >
-        {/* {loading && <p>Loading Cornerstone...</p>} */}
-        {uploading && (
-          <div className="w-[60%]">
-            <Progress value={uploadProgress} />
+        {selectedSeries && (
+          <div className="absolute text-sm top-2 left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+            I:{currentIndex + 1} ({currentIndex + 1}/
+            {selectedSeries?.images.length})
           </div>
         )}
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <label
-            htmlFor="file-upload"
-            className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
-          >
-            {" "}
-            <Upload className="w-6 h-6" aria-label="Upload" />
-            <span className="text-xs">Upload</span>
-          </label>
-          <input
-            id="file-upload"
-            type="file"
-            accept=".dcm,image/dicom"
-            multiple
-            onChange={handleFileInput}
-            webkitdirectory="true"
-            disabled={uploading}
-            className="hidden"
-          />
-          <button
-            onClick={() => activateTool(WindowLevelTool.toolName)}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-            title="Brightness/Contrast"
-          >
-            <Ban className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => activateTool(LengthTool.toolName)}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-            title="Measure"
-          >
-            <Ruler className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => activateTool(ZoomTool.toolName)}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-            title="Zoom"
-          >
-            <Search />
-          </button>
-          <button
-            onClick={() => activateTool(PanTool.toolName)}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
-            title="Pan"
-          >
-            <Move className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="flex items-center mb-2">
-          <button className="cursor-pointer">
+        <div className="flex items-center absolute top-2 right-2">
+          <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
             <ChevronLeft
               onClick={() => {
                 if (currentIndex > 0) {
                   setCurrentIndex((prev) => prev - 1);
                 }
               }}
-              className="w-6 h-6"
+              className="w-5 h-5 cursor-pointer"
             />
           </button>
-          <button className="cursor-pointer">
+          <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
             <ChevronRight
               onClick={() => {
                 if (
@@ -478,24 +240,26 @@ const CornerstoneViewer = () => {
                   setCurrentIndex((prev) => prev + 1);
                 }
               }}
-              className="w-6 h-6"
+              className="w-5 h-5 cursor-pointer"
             />
           </button>
+        </div>{" "}
+        <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+          Zoom: {(zoomLevel / 100).toFixed(2)}x{" "}
         </div>
-        {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
-        {selectedSeries && (
-          <div className="">
-            ({currentIndex + 1}/{selectedSeries?.images.length})
-          </div>
-        )}
-        <div
-          ref={viewportRef}
-          //  style={{ width: "512px", height: "512px" }}
-          className="w-full-h-full flex-1 !rounded-xl overflow-hidden"
-        />
       </div>
     </div>
   );
 };
 
 export default CornerstoneViewer;
+{
+  /* {uploading && (
+          <div className="w-[60%]">
+          <Progress value={uploadProgress} />
+          </div>
+          )} */
+}
+{
+  /* Zoom: {(zoomLevel / 100).toFixed(2)}x */
+}

@@ -4,7 +4,20 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import dicomParser from "dicom-parser";
+import { wadouri } from "@cornerstonejs/dicom-image-loader";
 
+import {
+  init as cornerstoneToolsInit,
+  ToolGroupManager,
+  WindowLevelTool,
+  StackScrollTool,
+  ZoomTool,
+  Enums as csToolsEnums,
+  addTool,
+  LengthTool,
+  PanTool,
+} from "@cornerstonejs/tools";
 interface DicomContextType {
   studies: any[];
   setStudies: (studies: any[]) => void;
@@ -19,11 +32,182 @@ interface DicomProviderProps {
 export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
   const [studies, setStudies] = useState<any[]>([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleSeriesSelect = (series) => {
-    console.log("Selected series:", series);
     setSelectedSeries(series);
+    setCurrentIndex(0);
   };
   const selectedSeriesUID = selectedSeries?.seriesUID;
+  const handleFileUpload = async (files: FileList) => {
+    const fileArray = Array.from(files);
+    const totalFiles = fileArray.length;
+    if (totalFiles === 0) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+    const studyMap = new Map();
+
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        const file = fileArray[i];
+        const arrayBuffer = await file.arrayBuffer();
+        const byteArray = new Uint8Array(arrayBuffer);
+        const dataset = dicomParser.parseDicom(byteArray);
+        const transferSyntaxUID = dataset.string("x00020010");
+        const studyUID = dataset.string("x0020000d"); // study
+        console.log("Study UID:", studyUID);
+        const seriesUID = dataset.string("x0020000e"); // series
+        console.log("Series UID:", seriesUID);
+        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
+        const seriesDescription =
+          dataset.string("x0008103e") || `Series ${seriesUID.slice(-8)}`;
+        const seriesNumber = dataset.intString("x00200011") || 0;
+        if (!transferSyntaxUID) {
+          console.warn(`No transfer syntax found for file: ${file.name}`);
+          continue;
+        }
+        console.log(
+          `Processing file: ${file.name}, Transfer Syntax UID: ${transferSyntaxUID}`
+        );
+        if (!studyUID || !seriesUID) {
+          console.warn(`Missing Study or Series UID for file: ${file.name}`);
+          continue;
+        }
+
+        const imageId = wadouri.fileManager.add(file);
+        if (!studyMap.has(studyUID)) {
+          studyMap.set(studyUID, {
+            studyUID,
+            studyDescription:
+              dataset.string("x00081030") || `Study ${studyUID.slice(-8)}`,
+            seriesMap: new Map(),
+          });
+        }
+        const study = studyMap.get(studyUID);
+        if (!study.seriesMap.has(seriesUID)) {
+          study.seriesMap.set(seriesUID, {
+            seriesUID,
+            seriesDescription,
+            seriesNumber,
+            images: [],
+          });
+        }
+        study.seriesMap.get(seriesUID).images.push({ imageId, instanceNumber });
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+        // parsedFiles.push({ imageId, instanceNumber });
+      }
+      const newStudies = Array.from(studyMap.values()).map((study) => ({
+        ...study,
+        series: Array.from(study.seriesMap.values()).map((series) => ({
+          ...(series as object), // potentially error
+          images: series.images.sort(
+            (a, b) => a.instanceNumber - b.instanceNumber
+          ),
+        })),
+      }));
+      setStudies((prevStudies) => {
+        const updatedStudies = [...prevStudies];
+        newStudies.forEach((newStudy) => {
+          const existingStudyIndex = updatedStudies.findIndex(
+            (s) => s.studyUID === newStudy.studyUID
+          );
+          if (existingStudyIndex >= 0) {
+            newStudy.series.forEach((newSeries) => {
+              const existingSeriesIndex = updatedStudies[
+                existingStudyIndex
+              ].series.findIndex((s) => s.seriesUID === newSeries.seriesUID);
+              if (existingSeriesIndex >= 0) {
+                updatedStudies[existingSeriesIndex].series[
+                  existingSeriesIndex
+                ].images = [
+                  ...updatedStudies[existingSeriesIndex].series[
+                    existingSeriesIndex
+                  ].images,
+                  ...newSeries.images,
+                ].sort((a, b) => a.instanceNumber - b.instanceNumber);
+              } else {
+                updatedStudies[existingStudyIndex].series.push(newSeries);
+              }
+            });
+          } else {
+            updatedStudies.push(newStudy);
+          }
+        });
+        return updatedStudies;
+      });
+      if (
+        !selectedSeries &&
+        newStudies.length > 0 &&
+        newStudies[0].series.length > 0
+      ) {
+        handleSeriesSelect(newStudies[0].series[0]);
+        setCurrentIndex(0);
+      }
+    } catch (error) {
+      console.error("Error processing file:", file.name, error);
+    } finally {
+      setUploading(false);
+      // setUploadProgress(100);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+
+    const items = e.dataTransfer.items;
+    const files = [];
+
+    const readEntries = async (entry) => {
+      return new Promise((resolve) => {
+        if (entry.isFile) {
+          entry.file((file) => {
+            files.push(file);
+            resolve();
+          });
+        } else if (entry.isDirectory) {
+          const dirReader = entry.createReader();
+          dirReader.readEntries(async (entries) => {
+            for (const ent of entries) {
+              await readEntries(ent);
+            }
+            resolve();
+          });
+        }
+      });
+    };
+
+    const readAllEntries = async () => {
+      const promises = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry) {
+          promises.push(readEntries(entry));
+        }
+      }
+      await Promise.all(promises);
+      return files;
+    };
+
+    const allFiles = await readAllEntries();
+
+    if (allFiles.length > 0) {
+      handleFileUpload(allFiles);
+    } else {
+      console.warn("No files found in dropped folder");
+    }
+  };
+
+  const handleFileInput = (e) => {
+    const files = e.target.files;
+    if (files.length > 0) {
+      handleFileUpload(files);
+    }
+  };
   return (
     <DicomContext.Provider
       value={{
@@ -32,6 +216,15 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         selectedSeries,
         handleSeriesSelect,
         selectedSeriesUID,
+        currentIndex,
+        setCurrentIndex,
+        uploading,
+        handleFileUpload,
+        handleFileInput,
+        isDragging,
+        setIsDragging,
+        handleDrop,
+        // activateTool,
       }}
     >
       {children}
