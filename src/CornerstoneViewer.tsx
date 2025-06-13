@@ -26,13 +26,14 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import TestBar from "./components/TestBar";
+import { useDicomContext } from "./context/DicomContext";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
   const [loading, setLoading] = useState(true);
-  const [studies, setStudies] = useState([]);
-  const [selectedSeries, setSelectedSeries] = useState(null);
+  // const [studies, setStudies] = useState([]);
+  // const [selectedSeries, setSelectedSeries] = useState(null);
+  const { setStudies, selectedSeries, handleSeriesSelect } = useDicomContext();
   const [error, setError] = useState(null);
   // const [imageIds, setImageIds] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -307,7 +308,7 @@ const CornerstoneViewer = () => {
         newStudies.length > 0 &&
         newStudies[0].series.length > 0
       ) {
-        setSelectedSeries(newStudies[0].series[0]);
+        handleSeriesSelect(newStudies[0].series[0]);
         setCurrentIndex(0);
       }
     } catch (error) {
@@ -384,18 +385,17 @@ const CornerstoneViewer = () => {
     setIsDragging(false);
   };
 
-  const handleSeriesSelect = (series) => {
-    setSelectedSeries(series);
-    setCurrentIndex(0);
-  };
-  console.log(currentIndex);
+  // const handleSeriesSelect = (series) => {
+  //   setSelectedSeries(series);
+  //   setCurrentIndex(0);
+  // };
   return (
     <div className="flex w-full h-full">
-      <TestBar
+      {/* <TestBar
         studies={studies}
         onSeriesSelect={handleSeriesSelect}
         selectedSeriesUID={selectedSeries?.seriesUID}
-      />
+      /> */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
