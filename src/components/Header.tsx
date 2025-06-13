@@ -5,6 +5,7 @@ const Header = () => {
         <img src="vite.svg" alt="Logo" className="w-10 h-10" />
         <h1 className="text-lg font-semibold ">Cornerstone</h1>
       </div>
+      <div></div>
     </header>
   );
 };

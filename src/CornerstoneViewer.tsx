@@ -14,9 +14,10 @@ import {
   Enums as csToolsEnums,
   addTool,
   LengthTool,
+  PanTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
-import { Upload } from "lucide-react";
+import { Ban, Move, Ruler, Search, Upload } from "lucide-react";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -27,6 +28,7 @@ const CornerstoneViewer = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
 
   const renderingEngineId = "myRenderingEngine";
   const renderingEngineRef = useRef(null);
@@ -34,6 +36,7 @@ const CornerstoneViewer = () => {
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
+  const toolGroupRef = useRef(null);
 
   useEffect(() => {
     const initCornerstone = async () => {
@@ -51,15 +54,18 @@ const CornerstoneViewer = () => {
       addTool(ZoomTool);
       addTool(StackScrollTool);
       addTool(LengthTool);
+      addTool(PanTool);
       const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
       if (!toolGroup) {
         console.error("Failed to create tool group:", toolGroupId);
         return;
       }
+      toolGroupRef.current = toolGroup;
       toolGroup.addTool(WindowLevelTool.toolName);
       toolGroup.addTool(ZoomTool.toolName);
       toolGroup.addTool(StackScrollTool.toolName);
       toolGroup.addTool(LengthTool.toolName);
+      toolGroup.addTool(PanTool.toolName);
 
       toolGroup.setToolActive(WindowLevelTool.toolName, {
         bindings: [
@@ -82,14 +88,14 @@ const CornerstoneViewer = () => {
           },
         ],
       });
-      toolGroup.setToolActive(LengthTool.toolName, {
-        bindings: [
-          {
-            mouseButton: csToolsEnums.MouseBindings.Primary, // Left Click
-            modifierKey: csToolsEnums.KeyboardBindings.Ctrl,
-          },
-        ],
-      });
+      // toolGroup.setToolActive(LengthTool.toolName, {
+      //   bindings: [
+      //     {
+      //       mouseButton: csToolsEnums.MouseBindings.Primary, // Left Click
+      //       modifierKey: csToolsEnums.KeyboardBindings.Ctrl,
+      //     },
+      //   ],
+      // });
 
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);
@@ -135,14 +141,14 @@ const CornerstoneViewer = () => {
         console.error("Viewport is not initialized.");
         return;
       }
-      // console.log(viewport);
-      // console.log(viewport.getZoom());
-      // viewport.setZoom(zoomLevel / 100);
+      console.log(viewport);
+      console.log(viewport.getZoom());
+      viewport.setZoom(zoomLevel / 100);
 
       viewport.setStack(imageIds, currentIndex);
       viewport.render();
     }
-  }, [imageIds, currentIndex]);
+  }, [imageIds, currentIndex, zoomLevel]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -157,6 +163,41 @@ const CornerstoneViewer = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentIndex, imageIds]);
+
+  const activateTool = (toolName) => {
+    const toolGroup = toolGroupRef.current;
+    if (!toolGroup) return;
+    [WindowLevelTool.toolName, LengthTool.toolName, PanTool.toolName].forEach(
+      (tool) => {
+        if (
+          tool != ZoomTool.toolName &&
+          tool !== StackScrollTool.toolName &&
+          tool !== PanTool.toolName
+        ) {
+          toolGroup.setToolPassive(tool);
+        }
+      }
+    );
+    if (toolName === LengthTool.toolName) {
+      toolGroup.setToolActive(LengthTool.toolName, {
+        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
+      });
+    } else if (toolName === WindowLevelTool.toolName) {
+      toolGroup.setToolActive(WindowLevelTool.toolName, {
+        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
+      });
+    } else if (toolName === PanTool.toolName) {
+      toolGroup.setToolActive(PanTool.toolName, {
+        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
+      });
+    } else if (toolName === ZoomTool.toolName) {
+      toolGroup.setToolActive(ZoomTool.toolName, {
+        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
+      });
+    }
+
+    setActiveTool(toolName);
+  };
 
   const handleFileUpload = async (files) => {
     const fileArray = Array.from(files);
@@ -174,11 +215,7 @@ const CornerstoneViewer = () => {
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
         const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
-        // const photometricInterpretation =
-        //   dataset.string("x00280004") || "MONOCHROME2"; // Photometric Interpretation
-        // console.log(
-        //   `File: ${file.name}, PhotometricInterpretation: ${photometricInterpretation}`
-        // );
+
         const imageId = wadouri.fileManager.add(file);
         parsedFiles.push({ imageId, instanceNumber });
       } catch (error) {
@@ -259,44 +296,68 @@ const CornerstoneViewer = () => {
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      className="flex w-full h-full relative border-1 border-cyan-400 rounded-xl"
-      // style={{
-      //   padding: "20px",
-      //   display: "flex",
-      //   flexDirection: "column",
-      //   alignItems: "center",
-      //   position: "relative",
-      //   zIndex: 1,
-      //   border: isDragging ? "2px dashed blue" : "2px dashed #ccc",
-      //   backgroundColor: isDragging ? "#f0f8ff" : "transparent",
-      //   // backgroundColor: "#f9f9f9",
-      // }}
+      className="flex flex-col w-full h-full relative border-1 border-cyan-400 rounded-xl"
     >
       {/* {loading && <p>Loading Cornerstone...</p>} */}
-      {/* {uploading && (
+      {uploading && (
         <div className="w-[60%]">
           <Progress value={uploadProgress} />
         </div>
-      )} */}
-      {/* <label
-        htmlFor="file-upload"
-        className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
-      >
-        {" "}
-        <Upload className="w-6 h-6" aria-label="Upload" />
-        <span className="text-xs">Upload</span>
-      </label>
-      <input
-        id="file-upload"
-        type="file"
-        accept=".dcm,image/dicom"
-        multiple
-        onChange={handleFileInput}
-        style={{ marginBottom: "10px" }}
-        webkitdirectory="true"
-        disabled={uploading}
-      /> */}
+      )}
+      <div className="flex items-center justify-center gap-2 mb-2">
+        <label
+          htmlFor="file-upload"
+          className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
+        >
+          {" "}
+          <Upload className="w-6 h-6" aria-label="Upload" />
+          <span className="text-xs">Upload</span>
+        </label>
+        <input
+          id="file-upload"
+          type="file"
+          accept=".dcm,image/dicom"
+          multiple
+          onChange={handleFileInput}
+          webkitdirectory="true"
+          disabled={uploading}
+          className="hidden"
+        />
+        <button
+          onClick={() => activateTool(WindowLevelTool.toolName)}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          title="Brightness/Contrast"
+        >
+          <Ban className="w-6 h-6" />
+        </button>
+        <button
+          onClick={() => activateTool(LengthTool.toolName)}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          title="Measure"
+        >
+          <Ruler className="w-6 h-6" />
+        </button>
+        <button
+          onClick={() => activateTool(ZoomTool.toolName)}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          title="Zoom"
+        >
+          <Search />
+        </button>
+        <button
+          onClick={() => activateTool(PanTool.toolName)}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          title="Pan"
+        >
+          <Move className="w-6 h-6" />
+        </button>
+      </div>
       {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
+      {imageIds.length > 0 && (
+        <div className="">
+          ({currentIndex + 1}/{imageIds.length})
+        </div>
+      )}
       <div
         ref={viewportRef}
         //  style={{ width: "512px", height: "512px" }}
