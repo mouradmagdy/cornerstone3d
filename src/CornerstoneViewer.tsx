@@ -17,7 +17,15 @@ import {
   PanTool,
 } from "@cornerstonejs/tools";
 import { Progress } from "./components/ui/progress";
-import { Ban, Move, Ruler, Search, Upload } from "lucide-react";
+import {
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Move,
+  Ruler,
+  Search,
+  Upload,
+} from "lucide-react";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -214,6 +222,16 @@ const CornerstoneViewer = () => {
         const arrayBuffer = await file.arrayBuffer();
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
+        const transferSyntaxUID = dataset.string("x00020010");
+
+        if (!transferSyntaxUID) {
+          console.warn(`No transfer syntax found for file: ${file.name}`);
+          continue;
+        }
+        console.log(
+          `Processing file: ${file.name}, Transfer Syntax UID: ${transferSyntaxUID}`
+        );
+
         const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
 
         const imageId = wadouri.fileManager.add(file);
@@ -325,31 +343,53 @@ const CornerstoneViewer = () => {
         />
         <button
           onClick={() => activateTool(WindowLevelTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
           title="Brightness/Contrast"
         >
           <Ban className="w-6 h-6" />
         </button>
         <button
           onClick={() => activateTool(LengthTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
           title="Measure"
         >
           <Ruler className="w-6 h-6" />
         </button>
         <button
           onClick={() => activateTool(ZoomTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
           title="Zoom"
         >
           <Search />
         </button>
         <button
           onClick={() => activateTool(PanTool.toolName)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
           title="Pan"
         >
           <Move className="w-6 h-6" />
+        </button>
+      </div>
+      <div className="flex items-center mb-2">
+        <button className="cursor-pointer">
+          <ChevronLeft
+            onClick={() => {
+              if (currentIndex > 0) {
+                setCurrentIndex((prev) => prev - 1);
+              }
+            }}
+            className="w-6 h-6"
+          />
+        </button>
+        <button className="cursor-pointer">
+          <ChevronRight
+            onClick={() => {
+              if (currentIndex < imageIds.length - 1) {
+                setCurrentIndex((prev) => prev + 1);
+              }
+            }}
+            className="w-6 h-6"
+          />
         </button>
       </div>
       {/* Zoom: {(zoomLevel / 100).toFixed(2)}x */}
