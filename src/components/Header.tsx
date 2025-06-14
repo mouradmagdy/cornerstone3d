@@ -34,7 +34,6 @@ const Header = () => {
           accept=".dcm,image/dicom"
           multiple
           onChange={handleFileInput}
-          webkitdirectory="true"
           disabled={uploading}
           className="hidden"
         />
