@@ -180,7 +180,9 @@ const Header = () => {
             activateTool(CircleROITool.toolName, toolGroupRef.current)
           }
           className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
-            activeTool === LengthTool.toolName ? "bg-blue-700 text-black" : ""
+            activeTool === CircleROITool.toolName
+              ? "bg-blue-700 text-black"
+              : ""
           }`}
           title="Measure"
         >
@@ -189,7 +191,7 @@ const Header = () => {
         <button
           onClick={() => activateTool(AngleTool.toolName, toolGroupRef.current)}
           className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
-            activeTool === LengthTool.toolName ? "bg-blue-700 text-black" : ""
+            activeTool === AngleTool.toolName ? "bg-blue-700 text-black" : ""
           }`}
           title="Measure"
         >

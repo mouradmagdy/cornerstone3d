@@ -61,10 +61,9 @@ export const ToolProvider: React.FC<ToolProviderProps> = ({
       CircleROITool.toolName,
       AngleTool.toolName,
     ].forEach((tool) => {
-      if (tool !== StackScrollTool.toolName) {
-        toolGroup.setToolPassive(tool);
-      }
+      toolGroup.setToolPassive(tool);
     });
+
     toolGroup.setToolActive(toolName, {
       bindings: [{ mouseButton: csToolsEnums.MouseBindings.Primary }],
     });

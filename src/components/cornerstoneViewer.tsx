@@ -146,6 +146,31 @@ const CornerstoneViewer = () => {
       // );
       viewport.setStack(imageIds, currentIndex);
 
+      viewport.render();
+    }
+  }, [
+    selectedSeries,
+    currentIndex,
+    zoomLevel,
+    renderingEngineRef,
+    toolGroupRef,
+  ]);
+
+  useEffect(() => {
+    if (selectedSeries && renderingEngineRef.current) {
+      const renderingEngine = renderingEngineRef.current;
+      if (!renderingEngine) {
+        console.error("Rendering engine is not initialized.");
+        return;
+      }
+      const viewport = renderingEngine.getViewport(
+        viewportId
+      ) as Types.IStackViewport;
+      if (!viewport) {
+        console.error("Viewport is not initialized.");
+        return;
+      }
+
       toolGroupRef.current.setToolActive(WindowLevelTool.toolName, {
         bindings: [
           {
@@ -164,15 +189,8 @@ const CornerstoneViewer = () => {
       toolGroupRef.current.setToolActive(StackScrollTool.toolName, {
         bindings: [{ mouseButton: csToolsEnums.MouseBindings.Wheel }],
       });
-      viewport.render();
     }
-  }, [
-    selectedSeries,
-    currentIndex,
-    zoomLevel,
-    renderingEngineRef,
-    toolGroupRef,
-  ]);
+  }, [selectedSeries, renderingEngineRef, toolGroupRef]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
