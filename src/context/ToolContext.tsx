@@ -10,9 +10,33 @@ import { Enums as csToolsEnums } from "@cornerstonejs/tools";
 
 const ToolContext = createContext();
 
-export const ToolProvider = ({ children }) => {
+export const ToolProvider = ({ children, setCurrentIndex }) => {
   const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
   const toolGroupRef = useRef(null);
+  const renderingEngineRef = useRef(null);
+  const viewportId = "myViewport";
+
+  const resetViewport = () => {
+    if (renderingEngineRef.current) {
+      const renderingEngine = renderingEngineRef.current;
+      const viewport = renderingEngine.getViewport(viewportId);
+      if (viewport) {
+        console.log(viewport);
+        const image = viewport.getCornerstoneImage();
+        viewport.resetCamera();
+
+        // if (image) {
+        //   const windowWidth = image.windowWidth;
+        //   const windowCenter = image.windowCenter;
+        //   viewport.setVOI({ windowCenter, windowWidth });
+        // }
+        setCurrentIndex(0);
+
+        // Re-render the viewport
+        viewport.render();
+      }
+    }
+  };
 
   const activateTool = (toolName, toolGroup) => {
     if (!toolGroup) return;
@@ -32,7 +56,15 @@ export const ToolProvider = ({ children }) => {
     setActiveTool(toolName);
   };
   return (
-    <ToolContext.Provider value={{ toolGroupRef, activateTool, activeTool }}>
+    <ToolContext.Provider
+      value={{
+        toolGroupRef,
+        activateTool,
+        activeTool,
+        renderingEngineRef,
+        resetViewport,
+      }}
+    >
       {children}
     </ToolContext.Provider>
   );

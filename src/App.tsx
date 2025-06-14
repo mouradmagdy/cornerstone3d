@@ -7,17 +7,13 @@ import { ToolProvider } from "./context/ToolContext";
 function App() {
   return (
     <>
-      <DicomProvider>
-        <ToolProvider>
-          <Toast />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/home" element={<Home />} />
-            </Routes>
-          </BrowserRouter>
-        </ToolProvider>
-      </DicomProvider>
+      <Toast />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
+        </Routes>
+      </BrowserRouter>
     </>
   );
 }

@@ -43,13 +43,13 @@ const CornerstoneViewer = () => {
     uploadProgress,
   } = useDicomContext();
 
-  const { activateTool, toolGroupRef } = useToolContext();
+  const { activateTool, toolGroupRef, renderingEngineRef } = useToolContext();
   const [error, setError] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const renderingEngineId = "myRenderingEngine";
-  const renderingEngineRef = useRef(null);
+  // const renderingEngineRef = useRef(null);
   const viewportRef = useRef(null);
   const initializedRef = useRef(false);
   const viewportId = "myViewport";

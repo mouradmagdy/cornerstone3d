@@ -1,5 +1,5 @@
 import { useDicomContext } from "@/context/DicomContext";
-import { Ban, Move, Ruler, Search, Upload } from "lucide-react";
+import { Ban, Move, RotateCcw, Ruler, Search, Upload } from "lucide-react";
 
 import {
   WindowLevelTool,
@@ -12,7 +12,7 @@ import { useToolContext } from "@/context/ToolContext";
 
 const Header = () => {
   const { uploading, handleFileInput } = useDicomContext();
-  const { activateTool, toolGroupRef } = useToolContext();
+  const { activateTool, toolGroupRef, resetViewport } = useToolContext();
 
   return (
     <header className="flex text-white border-muted  justify-between items-center px-6 py-2 top-0 left-0 right-0 z-10  border-b-blue-700 border-b   transition-all duration-300">
@@ -69,6 +69,9 @@ const Header = () => {
           title="Pan"
         >
           <Move className="w-6 h-6" />
+        </button>
+        <button onClick={resetViewport}>
+          <RotateCcw />
         </button>
       </div>
       <div></div>
