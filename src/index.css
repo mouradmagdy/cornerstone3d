@@ -118,3 +118,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Target the sidebar */
+aside.overflow-y-auto {
+  /* Ensure smooth scrolling behavior */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #4a5568 #1a202c; /* Thumb and track colors for Firefox */
+}
+
+/* WebKit browsers (Chrome, Safari, Edge) */
+aside.overflow-y-auto::-webkit-scrollbar {
+  width: 8px; /* Width of the scrollbar */
+}
+
+aside.overflow-y-auto::-webkit-scrollbar-track {
+  background: #1a202c; /* Track background color */
+  border-radius: 4px; /* Rounded edges for the track */
+}
+
+aside.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #4a5568; /* Thumb color */
+  border-radius: 4px; /* Rounded edges for the thumb */
+  transition: background 0.3s; /* Smooth color transition */
+}
+
+aside.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #718096; /* Lighter color on hover */
+}

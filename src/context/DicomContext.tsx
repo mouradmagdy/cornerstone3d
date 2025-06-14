@@ -34,64 +34,82 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
     setSelectedSeries(series);
     setCurrentIndex(0);
   };
-
   const generateThumbnail = async (imageId: string, series: Series) => {
     try {
       const image = await imageLoader.loadAndCacheImage(imageId);
       const pixelData = image.getPixelData();
       if (!pixelData) {
         console.warn(`No pixel data for thumbnail: ${imageId}`);
-        return;
+        return null;
       }
 
-      // Use cornerstone metadata provider to get image pixel module
-      const imagePixelModule = (window as any).cornerstone?.metaData?.get?.(
-        "imagePixelModule",
-        imageId
-      );
-      const { rows, columns, photometricInterpretation } = imagePixelModule || {
-        rows: 100,
-        columns: 100,
-        photometricInterpretation: "MONOCHROME2",
-      };
+      // Retrieve metadata directly from the image object
+      const rows = image.rows || 100; // Fallback to 100 if undefined
+      const columns = image.columns || 100;
+      const photometricInterpretation =
+        image.photometricInterpretation || "MONOCHROME2";
+      const windowCenter = image.windowCenter || 0;
+      const windowWidth = image.windowWidth || 1;
 
-      // Normalize pixel data for better contrast
-      let min = pixelData[0],
-        max = pixelData[0];
-      for (let i = 0; i < pixelData.length; i++) {
-        min = Math.min(min, pixelData[i]);
-        max = Math.max(max, pixelData[i]);
+      // Validate metadata
+      if (!rows || !columns) {
+        console.warn(`Invalid dimensions for image: ${imageId}`);
+        return null;
       }
 
-      const range = max - min || 1;
+      // Normalize pixel data using Window Center and Width
+      const minPixelValue = windowCenter - windowWidth / 2;
+      const maxPixelValue = windowCenter + windowWidth / 2;
+      const range = maxPixelValue - minPixelValue || 1;
+
+      // Create canvas with aspect ratio preservation
+      const thumbnailSize = 100;
+      const aspectRatio = columns / rows;
+      const canvasWidth =
+        aspectRatio >= 1 ? thumbnailSize : thumbnailSize * aspectRatio;
+      const canvasHeight =
+        aspectRatio >= 1 ? thumbnailSize / aspectRatio : thumbnailSize;
 
       const canvas = document.createElement("canvas");
-      canvas.width = 100;
-      canvas.height = 100;
+      canvas.width = Math.round(canvasWidth);
+      canvas.height = Math.round(canvasHeight);
       const ctx = canvas.getContext("2d")!;
-      const imgData = ctx.createImageData(100, 100);
-      const scaleX = columns / 100;
-      const scaleY = rows / 100;
+      const imgData = ctx.createImageData(canvas.width, canvas.height);
 
-      // Populate image data (simplified for example)
-      for (let y = 0; y < 100; y++) {
-        for (let x = 0; x < 100; x++) {
-          const i = (y * 100 + x) * 4;
-          const value =
-            pixelData[
-              Math.floor(y * scaleY) * columns + Math.floor(x * scaleX)
-            ];
-          imgData.data[i] = ((value - min) / range) * 255; // R
-          imgData.data[i + 1] = ((value - min) / range) * 255; // G
-          imgData.data[i + 2] = ((value - min) / range) * 255; // B
-          imgData.data[i + 3] = 255; // A
+      const scaleX = columns / canvas.width;
+      const scaleY = rows / canvas.height;
+
+      // Process pixel data (grayscale only)
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const srcX = Math.floor(x * scaleX);
+          const srcY = Math.floor(y * scaleY);
+          const srcIdx = srcY * columns + srcX; // Single-channel grayscale
+          const dstIdx = (y * canvas.width + x) * 4;
+
+          let value = pixelData[srcIdx] || 0;
+          // Apply VOI LUT transformation
+          value = Math.max(minPixelValue, Math.min(maxPixelValue, value));
+          const normalized = ((value - minPixelValue) / range) * 255;
+          // Handle MONOCHROME1 (inverted grayscale)
+          const finalValue =
+            photometricInterpretation === "MONOCHROME1"
+              ? 255 - normalized
+              : normalized;
+
+          imgData.data[dstIdx] =
+            imgData.data[dstIdx + 1] =
+            imgData.data[dstIdx + 2] =
+              finalValue;
+          imgData.data[dstIdx + 3] = 255; // Alpha
         }
       }
 
       ctx.putImageData(imgData, 0, 0);
-      return canvas.toDataURL();
-    } catch (error) {
-      console.error(`Error generating thumbnail for ${imageId}:`, error);
+      series.thumbnail = canvas.toDataURL("image/jpeg", 0.8); // Use JPEG for smaller size
+      return series.thumbnail;
+    } catch (err) {
+      console.error(`Failed to generate thumbnail for ${imageId}:`, err);
       return null;
     }
   };
@@ -179,7 +197,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
               seriesUID: series.seriesUID,
               imageId: firstImageId,
             });
-            series.thumbnail = thumbnailDataUrl;
+            series.thumbnail = thumbnailDataUrl || null;
           }
         }
       }

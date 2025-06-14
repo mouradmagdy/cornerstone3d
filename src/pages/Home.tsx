@@ -16,7 +16,7 @@ const Home = () => {
       <main>
         <div className="flex bg-black flex-col h-screen gap-1 text-foreground">
           <Header />
-          <ResizablePanelGroup className="flex gap-1" direction="horizontal">
+          <ResizablePanelGroup className="flex" direction="horizontal">
             <ResizablePanel minSize={2} defaultSize={20}>
               <Sidebar />
             </ResizablePanel>

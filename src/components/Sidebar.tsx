@@ -10,9 +10,9 @@ const Sidebar = () => {
   const { studies, handleSeriesSelect, selectedSeriesUID } = useDicomContext();
   return (
     <aside
-      className={`overflow-y-auto w-full bg-black rounded-xl text-white border-muted left-0 top-16 h-[calc(100vh-4rem)] flex flex-col  transition-all duration-300 `}
+      className={`overflow-y-auto w-full bg-black rounded-xl text-white  left-0 top-16 h-[calc(100vh-4rem)] flex flex-col  transition-all duration-300 `}
     >
-      <div className="w-full px-4 py-2 text-center border-b border-gray-700">
+      <div className="w-full px-4 py-2 text-center border-b border-blue-700">
         <h2 className="text-lg font-medium text-blue-700 ">Studies</h2>
       </div>
       {studies.length === 0 ? (
