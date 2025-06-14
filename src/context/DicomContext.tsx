@@ -6,7 +6,7 @@ import React, {
 } from "react";
 import dicomParser from "dicom-parser";
 import { wadouri } from "@cornerstonejs/dicom-image-loader";
-
+import { imageLoader } from "@cornerstonejs/core";
 interface DicomContextType {
   studies: any[];
   setStudies: (studies: any[]) => void;
@@ -34,6 +34,68 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
     setSelectedSeries(series);
     setCurrentIndex(0);
   };
+
+  const generateThumbnail = async (imageId: string, series: Series) => {
+    try {
+      const image = await imageLoader.loadAndCacheImage(imageId);
+      const pixelData = image.getPixelData();
+      if (!pixelData) {
+        console.warn(`No pixel data for thumbnail: ${imageId}`);
+        return;
+      }
+
+      // Use cornerstone metadata provider to get image pixel module
+      const imagePixelModule = (window as any).cornerstone?.metaData?.get?.(
+        "imagePixelModule",
+        imageId
+      );
+      const { rows, columns, photometricInterpretation } = imagePixelModule || {
+        rows: 100,
+        columns: 100,
+        photometricInterpretation: "MONOCHROME2",
+      };
+
+      // Normalize pixel data for better contrast
+      let min = pixelData[0],
+        max = pixelData[0];
+      for (let i = 0; i < pixelData.length; i++) {
+        min = Math.min(min, pixelData[i]);
+        max = Math.max(max, pixelData[i]);
+      }
+
+      const range = max - min || 1;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 100;
+      canvas.height = 100;
+      const ctx = canvas.getContext("2d")!;
+      const imgData = ctx.createImageData(100, 100);
+      const scaleX = columns / 100;
+      const scaleY = rows / 100;
+
+      // Populate image data (simplified for example)
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          const i = (y * 100 + x) * 4;
+          const value =
+            pixelData[
+              Math.floor(y * scaleY) * columns + Math.floor(x * scaleX)
+            ];
+          imgData.data[i] = ((value - min) / range) * 255; // R
+          imgData.data[i + 1] = ((value - min) / range) * 255; // G
+          imgData.data[i + 2] = ((value - min) / range) * 255; // B
+          imgData.data[i + 3] = 255; // A
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL();
+    } catch (error) {
+      console.error(`Error generating thumbnail for ${imageId}:`, error);
+      return null;
+    }
+  };
+
   const selectedSeriesUID = selectedSeries?.seriesUID;
 
   const handleFileUpload = async (files: FileList) => {
@@ -107,6 +169,21 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
 
         setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
       }
+
+      for (const study of studyMap.values()) {
+        for (const series of study.seriesMap.values()) {
+          if (series.images.length > 0) {
+            const firstImageId = series.images[0].imageId;
+            const thumbnailDataUrl = await generateThumbnail(firstImageId, {
+              studyUID: study.studyUID,
+              seriesUID: series.seriesUID,
+              imageId: firstImageId,
+            });
+            series.thumbnail = thumbnailDataUrl;
+          }
+        }
+      }
+
       const newStudies = Array.from(studyMap.values()).map((study) => ({
         ...study,
         series: Array.from(study.seriesMap.values()).map((series) => ({
