@@ -19,7 +19,6 @@ import {
   ZoomTool,
   LengthTool,
   PanTool,
-  annotation,
   AngleTool,
   CircleROITool,
 } from "@cornerstonejs/tools";
@@ -65,7 +64,7 @@ const Header = () => {
     }
     try {
       if (!isFullScreen) {
-        await viewportRef.current.requestFullscreen();
+        await (viewportRef.current as HTMLElement).requestFullscreen();
         setIsFullScreen(true);
         if (renderingEngineRef.current) {
           const viewport = renderingEngineRef.current.getViewport("myViewport");

@@ -9,11 +9,27 @@ import {
   CircleROITool,
 } from "@cornerstonejs/tools";
 import { Enums as csToolsEnums } from "@cornerstonejs/tools";
-import { ToolGroupManager } from "@cornerstonejs/tools";
 
-const ToolContext = createContext();
+interface ToolProviderProps {
+  children: React.ReactNode;
+  setCurrentIndex: (index: number) => void;
+}
 
-export const ToolProvider = ({ children, setCurrentIndex }) => {
+interface ToolContextType {
+  toolGroupRef: React.MutableRefObject<unknown>;
+  activateTool: (toolName: string, toolGroup: unknown) => void;
+  activeTool: string;
+  renderingEngineRef: React.MutableRefObject<unknown>;
+  resetViewport: () => void;
+  viewportRef: React.MutableRefObject<unknown>;
+}
+
+const ToolContext = createContext<ToolContextType | undefined>(undefined);
+
+export const ToolProvider: React.FC<ToolProviderProps> = ({
+  children,
+  setCurrentIndex,
+}) => {
   const [activeTool, setActiveTool] = useState(WindowLevelTool.toolName);
   const toolGroupRef = useRef(null);
   const renderingEngineRef = useRef(null);
@@ -24,19 +40,10 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
     if (renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       const viewport = renderingEngine.getViewport(viewportId);
-      const toolGroup = ToolGroupManager.getToolGroupForViewport(
-        viewport.id,
-        renderingEngine.id
-      );
 
       if (viewport) {
-        // console.log(viewport);
-        const image = viewport.getCornerstoneImage();
-        // console.log(image);
         viewport.resetCamera();
-
         setCurrentIndex(0);
-
         viewport.render();
       }
     }
@@ -77,6 +84,7 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToolContext = () => {
   const context = useContext(ToolContext);
   if (!context) {

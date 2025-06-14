@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import CornerstoneViewer from "@/components/CornerstoneViewer";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -8,6 +7,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { ToolProvider } from "@/context/ToolContext";
 import { useDicomContext } from "@/context/DicomContext";
+import CornerstoneViewer from "@/components/cornerstoneViewer";
 
 const Home = () => {
   const { setCurrentIndex } = useDicomContext();

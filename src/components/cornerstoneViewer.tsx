@@ -29,7 +29,7 @@ import { formatDICOMDate } from "@/helpers/formatdate";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const {
     selectedSeries,
     currentIndex,
@@ -41,9 +41,7 @@ const CornerstoneViewer = () => {
     uploadProgress,
   } = useDicomContext();
 
-  const { activateTool, toolGroupRef, renderingEngineRef, viewportRef } =
-    useToolContext();
-  const [error, setError] = useState(null);
+  const { toolGroupRef, renderingEngineRef, viewportRef } = useToolContext();
   const [metadata, setMetadata] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
@@ -85,28 +83,6 @@ const CornerstoneViewer = () => {
       toolGroup.addTool(AngleTool.toolName);
       toolGroup.addTool(CircleROITool.toolName);
 
-      // toolGroup.setToolActive(WindowLevelTool.toolName, {
-      //   bindings: [
-      //     {
-      //       mouseButton: csToolsEnums.MouseBindings.Primary,
-      //     },
-      //   ],
-      // });
-      // toolGroup.setToolActive(ZoomTool.toolName, {
-      //   bindings: [
-      //     {
-      //       mouseButton: csToolsEnums.MouseBindings.Secondary,
-      //     },
-      //   ],
-      // });
-      // toolGroup.setToolActive(StackScrollTool.toolName, {
-      //   bindings: [
-      //     {
-      //       mouseButton: csToolsEnums.MouseBindings.Wheel,
-      //     },
-      //   ],
-      // });
-
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);
       renderingEngineRef.current = renderingEngine;
@@ -141,7 +117,7 @@ const CornerstoneViewer = () => {
         handleStackScroll
       );
 
-      setLoading(false);
+      // setLoading(false);
     };
 
     initCornerstone();

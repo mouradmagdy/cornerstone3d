@@ -13,22 +13,55 @@ interface DicomContextType {
   selectedSeries: any;
   handleSeriesSelect: (series: any) => void;
   selectedSeriesUID: string | null;
+  currentIndex: number;
+  setCurrentIndex: (index: number) => void;
+  uploading: boolean;
+  handleFileUpload: (files: FileList) => void;
+  handleFileInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isDragging: boolean;
+  setIsDragging: (isDragging: boolean) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  dicomMetadata: { [key: string]: any };
+  uploadProgress: number;
 }
 const DicomContext = createContext<DicomContextType | undefined>(undefined);
 interface DicomProviderProps {
   children: ReactNode;
 }
+interface Series {
+  studyUID: string;
+  seriesUID: string;
+  seriesDescription: string;
+  seriesNumber: number;
+  images: { imageId: string; instanceNumber: number }[];
+  thumbnail?: string | null;
+}
+interface studies {
+  studyUID: string;
+  studyDescription: string;
+  seriesMap: Map<string, Series>;
+  series: Series[];
+}
+
+interface dicomMetadata {
+  [key: string]: {
+    patientName: string;
+    patientId: string;
+    gender: string;
+    modality: string;
+    studyDate: number;
+  };
+}
 export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
-  const [studies, setStudies] = useState<any[]>([]);
+  const [studies, setStudies] = useState<studies[]>([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dicomMetadata, setDicomMetadata] = useState<{ [key: string]: any }>(
-    {}
-  );
+  const [dicomMetadata, setDicomMetadata] = useState<{
+    [key: string]: dicomMetadata;
+  }>({});
 
   const handleSeriesSelect = (series) => {
     setSelectedSeries(series);
@@ -48,8 +81,18 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
       const columns = image.columns || 100;
       const photometricInterpretation =
         image.photometricInterpretation || "MONOCHROME2";
-      const windowCenter = image.windowCenter || 0;
-      const windowWidth = image.windowWidth || 1;
+      let windowCenter: number = Array.isArray(image.windowCenter)
+        ? image.windowCenter[0]
+        : image.windowCenter ?? 0;
+      let windowWidth: number = Array.isArray(image.windowWidth)
+        ? image.windowWidth[0]
+        : image.windowWidth ?? 1;
+
+      // Ensure windowCenter and windowWidth are numbers
+      if (typeof windowCenter === "string")
+        windowCenter = parseFloat(windowCenter);
+      if (typeof windowWidth === "string")
+        windowWidth = parseFloat(windowWidth);
 
       // Validate metadata
       if (!rows || !columns) {
@@ -58,9 +101,9 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
       }
 
       // Normalize pixel data using Window Center and Width
-      const minPixelValue = windowCenter - windowWidth / 2;
-      const maxPixelValue = windowCenter + windowWidth / 2;
-      const range = maxPixelValue - minPixelValue || 1;
+      const minPixelValue: number = windowCenter - windowWidth / 2;
+      const maxPixelValue: number = windowCenter + windowWidth / 2;
+      const range: number = maxPixelValue - minPixelValue || 1;
 
       // Create canvas with aspect ratio preservation
       const thumbnailSize = 100;
@@ -116,7 +159,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
 
   const selectedSeriesUID = selectedSeries?.seriesUID;
 
-  const handleFileUpload = async (files: FileList) => {
+  const handleFileUpload = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     const totalFiles = fileArray.length;
     if (totalFiles === 0) return;
@@ -207,8 +250,8 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
       const newStudies = Array.from(studyMap.values()).map((study) => ({
         ...study,
         series: Array.from(study.seriesMap.values()).map((series) => ({
-          ...(series as object),
-          images: series.images.sort(
+          ...(series as Series),
+          images: (series as Series).images.sort(
             (a, b) => a.instanceNumber - b.instanceNumber
           ),
         })),
@@ -220,7 +263,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
             (s) => s.studyUID === newStudy.studyUID
           );
           if (existingStudyIndex >= 0) {
-            newStudy.series.forEach((newSeries) => {
+            newStudy.series.forEach((newSeries: Series) => {
               const existingSeriesIndex = updatedStudies[
                 existingStudyIndex
               ].series.findIndex((s) => s.seriesUID === newSeries.seriesUID);
@@ -274,7 +317,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         if (entry.isFile) {
           entry.file((file) => {
             files.push(file);
-            resolve();
+            resolve(undefined);
           });
         } else if (entry.isDirectory) {
           const dirReader = entry.createReader();
@@ -282,7 +325,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
             for (const ent of entries) {
               await readEntries(ent);
             }
-            resolve();
+            resolve(undefined);
           });
         }
       });
@@ -303,7 +346,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
     const allFiles = await readAllEntries();
 
     if (allFiles.length > 0) {
-      handleFileUpload(allFiles);
+      handleFileUpload(allFiles as File[]);
     } else {
       console.warn("No files found in dropped folder");
     }
@@ -333,7 +376,6 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         handleDrop,
         dicomMetadata,
         uploadProgress,
-        // activateTool,
       }}
     >
       {children}
