@@ -143,6 +143,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         const patientId = dataset.string("x00100020") || "Unknown";
         const gender = dataset.string("x00100040") || "Unknown";
         const modality = dataset.string("x00080060") || "Unknown";
+        const studyDate = dataset.string("x00080020") || "Unknown";
         if (!transferSyntaxUID) {
           console.warn(`No transfer syntax found for file: ${file.name}`);
           continue;
@@ -182,6 +183,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
             patientId,
             gender,
             modality,
+            studyDate,
           };
         }
 

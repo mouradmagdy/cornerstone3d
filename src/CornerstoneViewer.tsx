@@ -28,6 +28,7 @@ import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { useDicomContext } from "./context/DicomContext";
 import { useToolContext } from "./context/ToolContext";
 import toast from "react-hot-toast";
+import { formatDICOMDate } from "./helpers/formatdate";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -144,7 +145,7 @@ const CornerstoneViewer = () => {
     };
 
     initCornerstone();
-  }, [setCurrentIndex, toolGroupRef]);
+  }, [setCurrentIndex, toolGroupRef, renderingEngineRef]);
 
   useEffect(() => {
     if (selectedSeries && renderingEngineRef.current) {
@@ -248,31 +249,33 @@ const CornerstoneViewer = () => {
             {selectedSeries?.images.length})
           </div>
         )}
-        <div className="flex items-center absolute top-2 right-2 z-10">
-          <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
-            <ChevronLeft
-              onClick={() => {
-                if (currentIndex > 0) {
-                  setCurrentIndex((prev) => prev - 1);
-                }
-              }}
-              className="w-5 h-5 cursor-pointer"
-            />
-          </button>
-          <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
-            <ChevronRight
-              onClick={() => {
-                if (
-                  selectedSeries &&
-                  currentIndex < selectedSeries.images.length - 1
-                ) {
-                  setCurrentIndex((prev) => prev + 1);
-                }
-              }}
-              className="w-5 h-5 cursor-pointer"
-            />
-          </button>
-        </div>{" "}
+        {selectedSeries && (
+          <div className="flex items-center absolute top-2 right-2 z-10">
+            <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
+              <ChevronLeft
+                onClick={() => {
+                  if (currentIndex > 0) {
+                    setCurrentIndex((prev) => prev - 1);
+                  }
+                }}
+                className="w-5 h-5 cursor-pointer"
+              />
+            </button>
+            <button className=" p-2 bg-opacity-50 hover:bg-opacity-75 rounded text-white">
+              <ChevronRight
+                onClick={() => {
+                  if (
+                    selectedSeries &&
+                    currentIndex < selectedSeries.images.length - 1
+                  ) {
+                    setCurrentIndex((prev) => prev + 1);
+                  }
+                }}
+                className="w-5 h-5 cursor-pointer"
+              />
+            </button>
+          </div>
+        )}
         {metadata && (
           <div className="absolute flex flex-col top-10 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
             <span className="z-10 text-blue-700">
@@ -283,20 +286,26 @@ const CornerstoneViewer = () => {
               <span className="text-white">Patient ID: </span>
               {metadata.patientId}
             </span>
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Study Date: </span>
+              {formatDICOMDate(metadata.studyDate)}
+            </span>
           </div>
         )}
-        <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
-          Zoom: {(zoomLevel / 100).toFixed(2)}x{" "}
-        </div>
+        {selectedSeries && (
+          <div className="absolute bottom-3 text-sm left-2 text-white bg-black bg-opacity-50 px-2 py-1 rounded z-10">
+            Zoom: {(zoomLevel / 100).toFixed(2)}x{" "}
+          </div>
+        )}
         {metadata && (
           <div className="absolute top-10 text-sm right-2 flex flex-col text-white  bg-opacity-50 px-2 py-1 rounded z-10">
             <span className="z-10 text-blue-700">
-              <span className="text-white">Gender </span>
-              {metadata.gender}
-            </span>
-            <span className="z-10 text-blue-700">
               <span className="text-white">Modality: </span>
               {metadata.modality}
+            </span>
+            <span className="z-10 text-blue-700">
+              <span className="text-white">Gender </span>
+              {metadata.gender}
             </span>
           </div>
         )}

@@ -12,7 +12,8 @@ import { useToolContext } from "@/context/ToolContext";
 
 const Header = () => {
   const { uploading, handleFileInput } = useDicomContext();
-  const { activateTool, toolGroupRef, resetViewport } = useToolContext();
+  const { activateTool, toolGroupRef, resetViewport, activeTool } =
+    useToolContext();
 
   return (
     <header className="flex text-white border-muted  justify-between items-center px-6 py-2 top-0 left-0 right-0 z-10  border-b-blue-700 border-b   transition-all duration-300">
@@ -41,7 +42,11 @@ const Header = () => {
           onClick={() =>
             activateTool(WindowLevelTool.toolName, toolGroupRef.current)
           }
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
+            activeTool === WindowLevelTool.toolName
+              ? "bg-blue-700 text-black"
+              : ""
+          } `}
           title="Brightness/Contrast"
         >
           <Ban className="w-6 h-6" />
@@ -50,26 +55,36 @@ const Header = () => {
           onClick={() =>
             activateTool(LengthTool.toolName, toolGroupRef.current)
           }
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
+            activeTool === LengthTool.toolName ? "bg-blue-700 text-black" : ""
+          }`}
           title="Measure"
         >
           <Ruler className="w-6 h-6" />
         </button>
         <button
           onClick={() => activateTool(ZoomTool.toolName, toolGroupRef.current)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black  ${
+            activeTool === ZoomTool.toolName ? "bg-blue-700 text-black" : ""
+          } `}
           title="Zoom"
         >
           <Search />
         </button>
         <button
           onClick={() => activateTool(PanTool.toolName, toolGroupRef.current)}
-          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer `}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
+            activeTool === PanTool.toolName ? "bg-blue-700 text-black" : ""
+          } `}
           title="Pan"
         >
           <Move className="w-6 h-6" />
         </button>
-        <button onClick={resetViewport}>
+        <button
+          title="Reset view"
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black `}
+          onClick={resetViewport}
+        >
           <RotateCcw />
         </button>
       </div>
