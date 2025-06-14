@@ -5,6 +5,8 @@ import {
   StackScrollTool,
   LengthTool,
   PanTool,
+  AngleTool,
+  CircleROITool,
 } from "@cornerstonejs/tools";
 import { Enums as csToolsEnums } from "@cornerstonejs/tools";
 import { ToolGroupManager } from "@cornerstonejs/tools";
@@ -35,7 +37,6 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
 
         setCurrentIndex(0);
 
-        // Re-render the viewport
         viewport.render();
       }
     }
@@ -48,6 +49,8 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
       LengthTool.toolName,
       PanTool.toolName,
       ZoomTool.toolName,
+      CircleROITool.toolName,
+      AngleTool.toolName,
     ].forEach((tool) => {
       if (tool !== StackScrollTool.toolName) {
         toolGroup.setToolPassive(tool);

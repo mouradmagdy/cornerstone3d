@@ -11,6 +11,8 @@ import {
   addTool,
   LengthTool,
   PanTool,
+  AngleTool,
+  CircleROITool,
 } from "@cornerstonejs/tools";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -46,8 +48,6 @@ const CornerstoneViewer = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const renderingEngineId = "myRenderingEngine";
-  // const renderingEngineRef = useRef(null);
-  // const viewportRef = useRef(null);
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
@@ -69,6 +69,8 @@ const CornerstoneViewer = () => {
       addTool(StackScrollTool);
       addTool(LengthTool);
       addTool(PanTool);
+      addTool(AngleTool);
+      addTool(CircleROITool);
       const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
       if (!toolGroup) {
         console.error("Failed to create tool group:", toolGroupId);
@@ -77,31 +79,33 @@ const CornerstoneViewer = () => {
       toolGroupRef.current = toolGroup;
       toolGroup.addTool(WindowLevelTool.toolName);
       toolGroup.addTool(ZoomTool.toolName);
-      toolGroup.addTool(StackScrollTool.toolName);
+      toolGroup.addTool(StackScrollTool.toolName, {});
       toolGroup.addTool(LengthTool.toolName);
       toolGroup.addTool(PanTool.toolName);
+      toolGroup.addTool(AngleTool.toolName);
+      toolGroup.addTool(CircleROITool.toolName);
 
-      toolGroup.setToolActive(WindowLevelTool.toolName, {
-        bindings: [
-          {
-            mouseButton: csToolsEnums.MouseBindings.Primary,
-          },
-        ],
-      });
-      toolGroup.setToolActive(ZoomTool.toolName, {
-        bindings: [
-          {
-            mouseButton: csToolsEnums.MouseBindings.Secondary,
-          },
-        ],
-      });
-      toolGroup.setToolActive(StackScrollTool.toolName, {
-        bindings: [
-          {
-            mouseButton: csToolsEnums.MouseBindings.Wheel,
-          },
-        ],
-      });
+      // toolGroup.setToolActive(WindowLevelTool.toolName, {
+      //   bindings: [
+      //     {
+      //       mouseButton: csToolsEnums.MouseBindings.Primary,
+      //     },
+      //   ],
+      // });
+      // toolGroup.setToolActive(ZoomTool.toolName, {
+      //   bindings: [
+      //     {
+      //       mouseButton: csToolsEnums.MouseBindings.Secondary,
+      //     },
+      //   ],
+      // });
+      // toolGroup.setToolActive(StackScrollTool.toolName, {
+      //   bindings: [
+      //     {
+      //       mouseButton: csToolsEnums.MouseBindings.Wheel,
+      //     },
+      //   ],
+      // });
 
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);
@@ -141,9 +145,12 @@ const CornerstoneViewer = () => {
     };
 
     initCornerstone();
-  }, [setCurrentIndex, toolGroupRef, renderingEngineRef]);
+  }, [setCurrentIndex, toolGroupRef, renderingEngineRef, viewportRef]);
 
   useEffect(() => {
+    // if (!selectedSeries) {
+    //   toolGroupRef.current.setToolPassive(StackScrollTool.toolName);
+    // }
     if (selectedSeries && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       if (!renderingEngine) {
@@ -156,8 +163,6 @@ const CornerstoneViewer = () => {
         return;
       }
       const imageIds = selectedSeries.images.map((img) => img.imageId);
-      console.log(viewport);
-      console.log(viewport.getZoom());
       viewport.setZoom(zoomLevel / 100);
 
       const cacheSize = Math.min(
@@ -167,9 +172,34 @@ const CornerstoneViewer = () => {
       viewport.setStack(imageIds, currentIndex, {
         cacheSize,
       });
+
+      toolGroupRef.current.setToolActive(WindowLevelTool.toolName, {
+        bindings: [
+          {
+            mouseButton: csToolsEnums.MouseBindings.Primary,
+          },
+        ],
+      });
+      toolGroupRef.current.setToolActive(ZoomTool.toolName, {
+        bindings: [
+          {
+            mouseButton: csToolsEnums.MouseBindings.Secondary,
+          },
+        ],
+      });
+
+      toolGroupRef.current.setToolActive(StackScrollTool.toolName, {
+        bindings: [{ mouseButton: csToolsEnums.MouseBindings.Wheel }],
+      });
       viewport.render();
     }
-  }, [selectedSeries, currentIndex, zoomLevel, renderingEngineRef]);
+  }, [
+    selectedSeries,
+    currentIndex,
+    zoomLevel,
+    renderingEngineRef,
+    toolGroupRef,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -231,6 +261,7 @@ const CornerstoneViewer = () => {
           </div>
         </DialogContent>
       </Dialog>
+
       <div
         ref={viewportRef}
         onDrop={handleDrop}
@@ -302,6 +333,18 @@ const CornerstoneViewer = () => {
             <span className="z-10 text-blue-700">
               <span className="text-white">Gender </span>
               {metadata.gender}
+            </span>
+          </div>
+        )}
+        {!selectedSeries && (
+          <div className="absolute top-72 right-96 z-10 flex flex-col items-center justify-center">
+            <span className="text-blue-700 text-lg">
+              No DICOM files selected. Please upload DICOM files via the upload
+              buttons
+            </span>
+            <span className="text-blue-700 text-lg">
+              {" "}
+              or you can drag and drop files.
             </span>
           </div>
         )}

@@ -2,13 +2,16 @@ import { useDicomContext } from "@/context/DicomContext";
 import {
   Ban,
   Camera,
+  Circle,
+  FileUp,
+  FolderUp,
   Maximize2,
   Minimize2,
   Move,
   RotateCcw,
   Ruler,
   Search,
-  Upload,
+  TriangleRight,
 } from "lucide-react";
 
 import {
@@ -17,6 +20,8 @@ import {
   LengthTool,
   PanTool,
   annotation,
+  AngleTool,
+  CircleROITool,
 } from "@cornerstonejs/tools";
 import { useToolContext } from "@/context/ToolContext";
 import toast from "react-hot-toast";
@@ -70,17 +75,6 @@ const Header = () => {
           }
         }
       }
-      //  else {
-      //   await document.exitFullscreen();
-      //   setIsFullScreen(false);
-      //   if (renderingEngineRef.current) {
-      //     const viewport = renderingEngineRef.current.getViewport("myViewport");
-      //     if (viewport) {
-      //       viewport.resetCamera();
-      //       viewport.render();
-      //     }
-      //   }
-      // }
     } catch (error) {
       console.error("Error toggling full-screen:", error);
       toast.error("Failed to toggle full-screen.");
@@ -124,13 +118,29 @@ const Header = () => {
         <img src="vite.svg" alt="Logo" className="w-10 h-10" />
         <h1 className="text-lg font-semibold ">Cornerstone3d</h1>
       </div>
-      <div className="flex items-center justify-center gap-2 mb-2">
+      <div className="flex items-center justify-center gap-2 ">
+        <label
+          htmlFor="series-upload"
+          className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
+        >
+          {" "}
+          <FolderUp className="w-6 h-6 text-white" aria-label="Upload" />
+        </label>
+        <input
+          id="series-upload"
+          type="file"
+          accept=".dcm,image/dicom"
+          multiple
+          webkitdirectory="true"
+          onChange={handleFileInput}
+          disabled={uploading}
+          className="hidden"
+        />
         <label
           htmlFor="file-upload"
           className="flex flex-col items-center gap-1 px-4 py-2 text-sidebar-foreground rounded hover:text-primary transition cursor-pointer"
         >
-          {" "}
-          <Upload className="w-6 h-6 text-white" aria-label="Upload" />
+          <FileUp className="w-6 h-6 text-white" aria-label="Upload" />
         </label>
         <input
           id="file-upload"
@@ -165,6 +175,26 @@ const Header = () => {
           title="Measure"
         >
           <Ruler className="w-6 h-6" />
+        </button>
+        <button
+          onClick={() =>
+            activateTool(CircleROITool.toolName, toolGroupRef.current)
+          }
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
+            activeTool === LengthTool.toolName ? "bg-blue-700 text-black" : ""
+          }`}
+          title="Measure"
+        >
+          <Circle className="w-6 h-6" />
+        </button>
+        <button
+          onClick={() => activateTool(AngleTool.toolName, toolGroupRef.current)}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black ${
+            activeTool === LengthTool.toolName ? "bg-blue-700 text-black" : ""
+          }`}
+          title="Measure"
+        >
+          <TriangleRight className="w-6 h-6" />
         </button>
         <button
           onClick={() => activateTool(ZoomTool.toolName, toolGroupRef.current)}
