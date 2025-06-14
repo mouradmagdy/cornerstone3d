@@ -39,14 +39,15 @@ const CornerstoneViewer = () => {
     uploadProgress,
   } = useDicomContext();
 
-  const { activateTool, toolGroupRef, renderingEngineRef } = useToolContext();
+  const { activateTool, toolGroupRef, renderingEngineRef, viewportRef } =
+    useToolContext();
   const [error, setError] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
 
   const renderingEngineId = "myRenderingEngine";
   // const renderingEngineRef = useRef(null);
-  const viewportRef = useRef(null);
+  // const viewportRef = useRef(null);
   const initializedRef = useRef(false);
   const viewportId = "myViewport";
   const toolGroupId = "myToolGroup";
@@ -101,7 +102,6 @@ const CornerstoneViewer = () => {
           },
         ],
       });
-      console.log(toolGroup.setToolActive);
 
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);

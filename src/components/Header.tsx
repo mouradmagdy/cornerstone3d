@@ -2,6 +2,8 @@ import { useDicomContext } from "@/context/DicomContext";
 import {
   Ban,
   Camera,
+  Maximize2,
+  Minimize2,
   Move,
   RotateCcw,
   Ruler,
@@ -18,6 +20,7 @@ import {
 } from "@cornerstonejs/tools";
 import { useToolContext } from "@/context/ToolContext";
 import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const { uploading, handleFileInput } = useDicomContext();
@@ -27,7 +30,62 @@ const Header = () => {
     resetViewport,
     activeTool,
     renderingEngineRef,
+    viewportRef,
   } = useToolContext();
+
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      const isCurrentlyFullScreen = !!document.fullscreenElement;
+      setIsFullScreen(isCurrentlyFullScreen);
+      if (renderingEngineRef.current) {
+        const viewport = renderingEngineRef.current.getViewport("myViewport");
+        if (viewport) {
+          viewport.resetCamera();
+          viewport.render();
+        }
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullScreenChange);
+    };
+  });
+
+  const handleFullScreenToggle = async () => {
+    if (!viewportRef.current) {
+      toast.error("Viewport is not available.");
+      return;
+    }
+    try {
+      if (!isFullScreen) {
+        await viewportRef.current.requestFullscreen();
+        setIsFullScreen(true);
+        if (renderingEngineRef.current) {
+          const viewport = renderingEngineRef.current.getViewport("myViewport");
+          if (viewport) {
+            viewport.resetCamera();
+            viewport.render();
+          }
+        }
+      }
+      //  else {
+      //   await document.exitFullscreen();
+      //   setIsFullScreen(false);
+      //   if (renderingEngineRef.current) {
+      //     const viewport = renderingEngineRef.current.getViewport("myViewport");
+      //     if (viewport) {
+      //       viewport.resetCamera();
+      //       viewport.render();
+      //     }
+      //   }
+      // }
+    } catch (error) {
+      console.error("Error toggling full-screen:", error);
+      toast.error("Failed to toggle full-screen.");
+    }
+  };
 
   const handleExportImage = () => {
     if (!renderingEngineRef.current) {
@@ -139,6 +197,17 @@ const Header = () => {
           onClick={handleExportImage}
         >
           <Camera className="w-6 h-6" />
+        </button>
+        <button
+          title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+          className="flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black"
+          onClick={handleFullScreenToggle}
+        >
+          {isFullScreen ? (
+            <Minimize2 className="w-6 h-6" />
+          ) : (
+            <Maximize2 className="w-6 h-6" />
+          )}
         </button>
       </div>
       <div></div>

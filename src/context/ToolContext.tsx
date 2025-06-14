@@ -16,6 +16,7 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
   const toolGroupRef = useRef(null);
   const renderingEngineRef = useRef(null);
   const viewportId = "myViewport";
+  const viewportRef = useRef(null);
 
   const resetViewport = () => {
     if (renderingEngineRef.current) {
@@ -65,6 +66,7 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
         activeTool,
         renderingEngineRef,
         resetViewport,
+        viewportRef,
       }}
     >
       {children}
