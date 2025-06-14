@@ -7,27 +7,7 @@ import React, {
 import dicomParser from "dicom-parser";
 import { wadouri } from "@cornerstonejs/dicom-image-loader";
 import { imageLoader } from "@cornerstonejs/core";
-interface DicomContextType {
-  studies: any[];
-  setStudies: (studies: any[]) => void;
-  selectedSeries: any;
-  handleSeriesSelect: (series: any) => void;
-  selectedSeriesUID: string | null;
-  currentIndex: number;
-  setCurrentIndex: (index: number) => void;
-  uploading: boolean;
-  handleFileUpload: (files: FileList) => void;
-  handleFileInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  isDragging: boolean;
-  setIsDragging: (isDragging: boolean) => void;
-  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
-  dicomMetadata: { [key: string]: any };
-  uploadProgress: number;
-}
-const DicomContext = createContext<DicomContextType | undefined>(undefined);
-interface DicomProviderProps {
-  children: ReactNode;
-}
+
 interface Series {
   studyUID: string;
   seriesUID: string;
@@ -52,6 +32,29 @@ interface dicomMetadata {
     studyDate: number;
   };
 }
+
+interface DicomContextType {
+  studies: studies[];
+  setStudies: (studies: studies[]) => void;
+  selectedSeries: Series | null;
+  handleSeriesSelect: (series: Series) => void;
+  selectedSeriesUID: string | null;
+  currentIndex: number;
+  setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+  uploading: boolean;
+  handleFileUpload: (files: FileList) => void;
+  handleFileInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isDragging: boolean;
+  setIsDragging: (isDragging: boolean) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  dicomMetadata: { [key: string]: dicomMetadata };
+  uploadProgress: number;
+}
+const DicomContext = createContext<DicomContextType | undefined>(undefined);
+interface DicomProviderProps {
+  children: ReactNode;
+}
+
 export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
   const [studies, setStudies] = useState<studies[]>([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
@@ -240,7 +243,10 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
             const thumbnailDataUrl = await generateThumbnail(firstImageId, {
               studyUID: study.studyUID,
               seriesUID: series.seriesUID,
-              imageId: firstImageId,
+              seriesDescription: series.seriesDescription,
+              seriesNumber: series.seriesNumber,
+              images: series.images,
+              thumbnail: series.thumbnail,
             });
             series.thumbnail = thumbnailDataUrl || null;
           }
@@ -299,7 +305,7 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         setCurrentIndex(0);
       }
     } catch (error) {
-      console.error("Error processing file:", file.name, error);
+      console.error("Error processing files:", error);
     } finally {
       setUploading(false);
       // setUploadProgress(100);

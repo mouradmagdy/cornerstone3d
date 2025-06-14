@@ -1,4 +1,6 @@
 import { createContext, useContext, useRef, useState } from "react";
+import { RenderingEngine } from "@cornerstonejs/core";
+
 import {
   WindowLevelTool,
   ZoomTool,
@@ -16,12 +18,12 @@ interface ToolProviderProps {
 }
 
 interface ToolContextType {
-  toolGroupRef: React.MutableRefObject<unknown>;
-  activateTool: (toolName: string, toolGroup: unknown) => void;
-  activeTool: string;
-  renderingEngineRef: React.MutableRefObject<unknown>;
+  toolGroupRef: React.MutableRefObject<any>;
+  activateTool: (toolName: string, toolGroup?: any) => void;
+  activeTool: string | null;
+  renderingEngineRef: React.MutableRefObject<RenderingEngine>;
   resetViewport: () => void;
-  viewportRef: React.MutableRefObject<unknown>;
+  viewportRef: React.MutableRefObject<HTMLDivElement | null>;
 }
 
 const ToolContext = createContext<ToolContextType | undefined>(undefined);
@@ -34,7 +36,7 @@ export const ToolProvider: React.FC<ToolProviderProps> = ({
   const toolGroupRef = useRef(null);
   const renderingEngineRef = useRef(null);
   const viewportId = "myViewport";
-  const viewportRef = useRef(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const resetViewport = () => {
     if (renderingEngineRef.current) {

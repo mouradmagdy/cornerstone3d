@@ -29,7 +29,6 @@ import { formatDICOMDate } from "@/helpers/formatdate";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
-  // const [loading, setLoading] = useState(true);
   const {
     selectedSeries,
     currentIndex,
@@ -106,7 +105,7 @@ const CornerstoneViewer = () => {
         }
       });
 
-      const handleStackScroll = (e) => {
+      const handleStackScroll = () => {
         const viewport = renderingEngineRef.current.getViewport(viewportId);
         const currentImageIndex = viewport.getCurrentImageIdIndex();
         setCurrentIndex(currentImageIndex);
@@ -124,9 +123,6 @@ const CornerstoneViewer = () => {
   }, [setCurrentIndex, toolGroupRef, renderingEngineRef, viewportRef]);
 
   useEffect(() => {
-    // if (!selectedSeries) {
-    //   toolGroupRef.current.setToolPassive(StackScrollTool.toolName);
-    // }
     if (selectedSeries && renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       if (!renderingEngine) {
@@ -213,10 +209,10 @@ const CornerstoneViewer = () => {
   const handleDragOver = (e) => {
     e.preventDefault();
   };
-  const handleDragEnter = (e) => {
+  const handleDragEnter = () => {
     setIsDragging(true);
   };
-  const handleDragLeave = (e) => {
+  const handleDragLeave = () => {
     setIsDragging(false);
   };
 
