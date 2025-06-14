@@ -1,5 +1,5 @@
 import Header from "@/components/Header";
-import CornerstoneViewer from "@/CornerstoneViewer";
+import CornerstoneViewer from "@/components/CornerstoneViewer";
 import {
   ResizableHandle,
   ResizablePanel,

@@ -1,5 +1,13 @@
 import { useDicomContext } from "@/context/DicomContext";
-import { Ban, Move, RotateCcw, Ruler, Search, Upload } from "lucide-react";
+import {
+  Ban,
+  Camera,
+  Move,
+  RotateCcw,
+  Ruler,
+  Search,
+  Upload,
+} from "lucide-react";
 
 import {
   WindowLevelTool,
@@ -9,11 +17,48 @@ import {
   annotation,
 } from "@cornerstonejs/tools";
 import { useToolContext } from "@/context/ToolContext";
+import toast from "react-hot-toast";
 
 const Header = () => {
   const { uploading, handleFileInput } = useDicomContext();
-  const { activateTool, toolGroupRef, resetViewport, activeTool } =
-    useToolContext();
+  const {
+    activateTool,
+    toolGroupRef,
+    resetViewport,
+    activeTool,
+    renderingEngineRef,
+  } = useToolContext();
+
+  const handleExportImage = () => {
+    if (!renderingEngineRef.current) {
+      toast.error("Rendering engine not initialized");
+      return;
+    }
+    const viewport = renderingEngineRef.current.getViewport("myViewport");
+    if (!viewport) {
+      toast.error("Viewport not found");
+      return;
+    }
+    const canvas = viewport.getCanvas();
+    viewport.render();
+    if (!canvas) {
+      toast.error("Canvas not found");
+      return;
+    }
+    try {
+      const dataURL = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataURL;
+      link.download = `dicom_image_${new Date().toISOString()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Image exported successfully");
+    } catch (error) {
+      console.log("Error exporting image:", error);
+      toast.error("Failed to export image");
+    }
+  };
 
   return (
     <header className="flex text-white border-muted  justify-between items-center px-6 py-2 top-0 left-0 right-0 z-10  border-b-blue-700 border-b   transition-all duration-300">
@@ -34,6 +79,7 @@ const Header = () => {
           type="file"
           accept=".dcm,image/dicom"
           multiple
+          // webkitdirectory="true"
           onChange={handleFileInput}
           disabled={uploading}
           className="hidden"
@@ -85,7 +131,14 @@ const Header = () => {
           className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black `}
           onClick={resetViewport}
         >
-          <RotateCcw />
+          <RotateCcw className="w-6 h-6" />
+        </button>
+        <button
+          title="Capture"
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded transition cursor-pointer hover:bg-blue-700 hover:text-black `}
+          onClick={handleExportImage}
+        >
+          <Camera className="w-6 h-6" />
         </button>
       </div>
       <div></div>

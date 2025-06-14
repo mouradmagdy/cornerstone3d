@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { init as coreInit, RenderingEngine, Enums } from "@cornerstonejs/core";
-import {
-  init as dicomImageLoaderInit,
-  wadouri,
-} from "@cornerstonejs/dicom-image-loader";
+import { init as dicomImageLoaderInit } from "@cornerstonejs/dicom-image-loader";
 import {
   init as cornerstoneToolsInit,
   ToolGroupManager,
@@ -15,20 +12,18 @@ import {
   LengthTool,
   PanTool,
 } from "@cornerstonejs/tools";
-import { Progress } from "./components/ui/progress";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
-import { useDicomContext } from "./context/DicomContext";
-import { useToolContext } from "./context/ToolContext";
+import { useDicomContext } from "@/context/DicomContext";
+import { useToolContext } from "@/context/ToolContext";
 import toast from "react-hot-toast";
-import { formatDICOMDate } from "./helpers/formatdate";
+import { formatDICOMDate } from "@/helpers/formatdate";
 const { ViewportType, Events } = Enums;
 
 const CornerstoneViewer = () => {
@@ -106,6 +101,7 @@ const CornerstoneViewer = () => {
           },
         ],
       });
+      console.log(toolGroup.setToolActive);
 
       // Initialize rendering engine
       const renderingEngine = new RenderingEngine(renderingEngineId);
@@ -173,7 +169,7 @@ const CornerstoneViewer = () => {
       });
       viewport.render();
     }
-  }, [selectedSeries, currentIndex, zoomLevel]);
+  }, [selectedSeries, currentIndex, zoomLevel, renderingEngineRef]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

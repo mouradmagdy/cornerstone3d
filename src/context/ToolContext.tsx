@@ -7,6 +7,7 @@ import {
   PanTool,
 } from "@cornerstonejs/tools";
 import { Enums as csToolsEnums } from "@cornerstonejs/tools";
+import { ToolGroupManager } from "@cornerstonejs/tools";
 
 const ToolContext = createContext();
 
@@ -20,16 +21,17 @@ export const ToolProvider = ({ children, setCurrentIndex }) => {
     if (renderingEngineRef.current) {
       const renderingEngine = renderingEngineRef.current;
       const viewport = renderingEngine.getViewport(viewportId);
+      const toolGroup = ToolGroupManager.getToolGroupForViewport(
+        viewport.id,
+        renderingEngine.id
+      );
+
       if (viewport) {
-        console.log(viewport);
+        // console.log(viewport);
         const image = viewport.getCornerstoneImage();
+        // console.log(image);
         viewport.resetCamera();
 
-        // if (image) {
-        //   const windowWidth = image.windowWidth;
-        //   const windowCenter = image.windowCenter;
-        //   viewport.setVOI({ windowCenter, windowWidth });
-        // }
         setCurrentIndex(0);
 
         // Re-render the viewport
