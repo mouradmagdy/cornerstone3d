@@ -130,7 +130,7 @@ const Header = () => {
           type="file"
           accept=".dcm,image/dicom"
           multiple
-          webkitdirectory="true"
+          {...({ webkitdirectory: "true" } as any)}
           onChange={handleFileInput}
           disabled={uploading}
           className="hidden"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { init as coreInit, RenderingEngine, Enums } from "@cornerstonejs/core";
+import type { Types } from "@cornerstonejs/core";
 import { init as dicomImageLoaderInit } from "@cornerstonejs/dicom-image-loader";
 import {
   init as cornerstoneToolsInit,
@@ -129,7 +130,9 @@ const CornerstoneViewer = () => {
         console.error("Rendering engine is not initialized.");
         return;
       }
-      const viewport = renderingEngine.getViewport(viewportId);
+      const viewport = renderingEngine.getViewport(
+        viewportId
+      ) as Types.IStackViewport;
       if (!viewport) {
         console.error("Viewport is not initialized.");
         return;
@@ -137,13 +140,11 @@ const CornerstoneViewer = () => {
       const imageIds = selectedSeries.images.map((img) => img.imageId);
       viewport.setZoom(zoomLevel / 100);
 
-      const cacheSize = Math.min(
-        100,
-        Math.floor(selectedSeries.images.length / 2)
-      );
-      viewport.setStack(imageIds, currentIndex, {
-        cacheSize,
-      });
+      // const cacheSize = Math.min(
+      //   100,
+      //   Math.floor(selectedSeries.images.length / 2)
+      // );
+      viewport.setStack(imageIds, currentIndex);
 
       toolGroupRef.current.setToolActive(WindowLevelTool.toolName, {
         bindings: [

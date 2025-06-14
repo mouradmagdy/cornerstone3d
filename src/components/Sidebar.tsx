@@ -41,7 +41,8 @@ const Sidebar = () => {
                             alt={`${series.seriesDescription} thumbnail`}
                             className="w-16 h-16 object-cover rounded"
                             onError={(e) => {
-                              e.target.style.display = "none";
+                              const target = e.target as HTMLElement;
+                              target.style.backgroundColor = "blue";
                             }}
                           />
                         )}
