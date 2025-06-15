@@ -6,7 +6,7 @@
 * Load multiple studies and series simultaneously
 * Image Display and Navigation
 * Scroll through DICOM slices using navigations buttons or scrolling
-* Metadata display for:
+* Metadata display
 
 ## Viewer Tools
 * Zoom
