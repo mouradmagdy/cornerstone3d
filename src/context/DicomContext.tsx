@@ -6,50 +6,14 @@ import React, {
 } from "react";
 import dicomParser from "dicom-parser";
 import { wadouri } from "@cornerstonejs/dicom-image-loader";
-import { imageLoader } from "@cornerstonejs/core";
+import type {
+  DicomContextType,
+  dicomMetadata,
+  Series,
+  studies,
+} from "@/types/types";
+import { generateThumbnail } from "@/helpers/generateThumbnail";
 
-interface Series {
-  studyUID: string;
-  seriesUID: string;
-  seriesDescription: string;
-  seriesNumber: number;
-  images: { imageId: string; instanceNumber: number }[];
-  thumbnail?: string | null;
-}
-interface studies {
-  studyUID: string;
-  studyDescription: string;
-  seriesMap: Map<string, Series>;
-  series: Series[];
-}
-
-interface dicomMetadata {
-  [key: string]: {
-    patientName: string;
-    patientId: string;
-    gender: string;
-    modality: string;
-    studyDate: number;
-  };
-}
-
-interface DicomContextType {
-  studies: studies[];
-  setStudies: (studies: studies[]) => void;
-  selectedSeries: Series | null;
-  handleSeriesSelect: (series: Series) => void;
-  selectedSeriesUID: string | null;
-  currentIndex: number;
-  setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
-  uploading: boolean;
-  handleFileUpload: (files: FileList) => void;
-  handleFileInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  isDragging: boolean;
-  setIsDragging: (isDragging: boolean) => void;
-  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
-  dicomMetadata: { [key: string]: dicomMetadata };
-  uploadProgress: number;
-}
 const DicomContext = createContext<DicomContextType | undefined>(undefined);
 interface DicomProviderProps {
   children: ReactNode;
@@ -70,96 +34,6 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
     setSelectedSeries(series);
     setCurrentIndex(0);
   };
-  const generateThumbnail = async (imageId: string, series: Series) => {
-    try {
-      const image = await imageLoader.loadAndCacheImage(imageId);
-      const pixelData = image.getPixelData();
-      if (!pixelData) {
-        console.warn(`No pixel data for thumbnail: ${imageId}`);
-        return null;
-      }
-
-      // Retrieve metadata directly from the image object
-      const rows = image.rows || 100; // Fallback to 100 if undefined
-      const columns = image.columns || 100;
-      const photometricInterpretation =
-        image.photometricInterpretation || "MONOCHROME2";
-      let windowCenter: number = Array.isArray(image.windowCenter)
-        ? image.windowCenter[0]
-        : image.windowCenter ?? 0;
-      let windowWidth: number = Array.isArray(image.windowWidth)
-        ? image.windowWidth[0]
-        : image.windowWidth ?? 1;
-
-      // Ensure windowCenter and windowWidth are numbers
-      if (typeof windowCenter === "string")
-        windowCenter = parseFloat(windowCenter);
-      if (typeof windowWidth === "string")
-        windowWidth = parseFloat(windowWidth);
-
-      // Validate metadata
-      if (!rows || !columns) {
-        console.warn(`Invalid dimensions for image: ${imageId}`);
-        return null;
-      }
-
-      // Normalize pixel data using Window Center and Width
-      const minPixelValue: number = windowCenter - windowWidth / 2;
-      const maxPixelValue: number = windowCenter + windowWidth / 2;
-      const range: number = maxPixelValue - minPixelValue || 1;
-
-      // Create canvas with aspect ratio preservation
-      const thumbnailSize = 100;
-      const aspectRatio = columns / rows;
-      const canvasWidth =
-        aspectRatio >= 1 ? thumbnailSize : thumbnailSize * aspectRatio;
-      const canvasHeight =
-        aspectRatio >= 1 ? thumbnailSize / aspectRatio : thumbnailSize;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(canvasWidth);
-      canvas.height = Math.round(canvasHeight);
-      const ctx = canvas.getContext("2d")!;
-      const imgData = ctx.createImageData(canvas.width, canvas.height);
-
-      const scaleX = columns / canvas.width;
-      const scaleY = rows / canvas.height;
-
-      // Process pixel data (grayscale only)
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-          const srcX = Math.floor(x * scaleX);
-          const srcY = Math.floor(y * scaleY);
-          const srcIdx = srcY * columns + srcX; // Single-channel grayscale
-          const dstIdx = (y * canvas.width + x) * 4;
-
-          let value = pixelData[srcIdx] || 0;
-          // Apply VOI LUT transformation
-          value = Math.max(minPixelValue, Math.min(maxPixelValue, value));
-          const normalized = ((value - minPixelValue) / range) * 255;
-          // Handle MONOCHROME1 (inverted grayscale)
-          const finalValue =
-            photometricInterpretation === "MONOCHROME1"
-              ? 255 - normalized
-              : normalized;
-
-          imgData.data[dstIdx] =
-            imgData.data[dstIdx + 1] =
-            imgData.data[dstIdx + 2] =
-              finalValue;
-          imgData.data[dstIdx + 3] = 255; // Alpha
-        }
-      }
-
-      ctx.putImageData(imgData, 0, 0);
-      series.thumbnail = canvas.toDataURL("image/jpeg", 0.8); // Use JPEG for smaller size
-      return series.thumbnail;
-    } catch (err) {
-      console.error(`Failed to generate thumbnail for ${imageId}:`, err);
-      return null;
-    }
-  };
-
   const selectedSeriesUID = selectedSeries?.seriesUID;
 
   const handleFileUpload = async (files: FileList | File[]) => {
@@ -179,9 +53,9 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
         const byteArray = new Uint8Array(arrayBuffer);
         const dataset = dicomParser.parseDicom(byteArray);
         const transferSyntaxUID = dataset.string("x00020010");
-        const studyUID = dataset.string("x0020000d"); // study
-        const seriesUID = dataset.string("x0020000e"); // series
-        const instanceNumber = dataset.intString("x00200013") || 0; // InstanceNumber
+        const studyUID = dataset.string("x0020000d");
+        const seriesUID = dataset.string("x0020000e");
+        const instanceNumber = dataset.intString("x00200013") || 0;
         const seriesDescription =
           dataset.string("x0008103e") || `Series ${seriesUID.slice(-8)}`;
         const seriesNumber = dataset.intString("x00200011") || 0;
@@ -308,7 +182,6 @@ export const DicomProvider: React.FC<DicomProviderProps> = ({ children }) => {
       console.error("Error processing files:", error);
     } finally {
       setUploading(false);
-      // setUploadProgress(100);
     }
   };
 

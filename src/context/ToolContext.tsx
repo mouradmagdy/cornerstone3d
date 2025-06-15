@@ -4,7 +4,6 @@ import { RenderingEngine } from "@cornerstonejs/core";
 import {
   WindowLevelTool,
   ZoomTool,
-  StackScrollTool,
   LengthTool,
   PanTool,
   AngleTool,
